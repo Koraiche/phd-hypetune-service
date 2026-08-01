@@ -1,0 +1,16 @@
+This is a small smoke-test text sample used only to confirm that the Phase 1
+quantization sweep pipeline runs end to end: model conversion, quantization,
+benchmarking, and perplexity scoring all execute without error.
+
+It is deliberately short and repetitive, which makes it unsuitable as an
+actual perplexity benchmark. A model can trivially memorize or exploit its
+repetition, so any perplexity number produced against this file is not
+comparable across papers and must not be reported in Section 5.1 of the
+article draft.
+
+Before running the real Phase 1 sweep for reportable results, replace the
+perplexity.corpus_path entry in config/phase1.yaml with a real held-out
+corpus, such as the wikitext-2-raw test split (wiki.test.raw), which is the
+standard corpus used for GGUF perplexity comparisons in the llama.cpp
+ecosystem and will make the results comparable to published quantization
+benchmarks.

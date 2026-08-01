@@ -1,0 +1,4 @@
+algorithm,cost,threads,n_batch,n_ctx,kv_cache_type,latency_ms_per_token,quality,peak_rss_mb,energy_j_per_token,feasible
+PSO,0.022560241321397896,4,32,512,f16,88.08,-6.0,742.6,0.687,True
+GWO,0.022560241321397896,4,32,512,f16,88.08,-6.0,742.6,0.687,True
+DE,0.022560241321397896,4,32,512,f16,88.08,-6.0,742.6,0.687,True

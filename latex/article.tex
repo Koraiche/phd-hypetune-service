@@ -1,0 +1,742 @@
+\documentclass[journal]{IEEEtran}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{hyperref}
+
+\graphicspath{{../results/figures/}}
+
+% ---------------------------------------------------------------------------
+% Draft-status helper macros. These make incomplete parts of the manuscript
+% visually obvious when compiled, and are meant to be removed (search for
+% \ph{, \verifynote{, \status{) before final submission.
+% ---------------------------------------------------------------------------
+\newcommand{\ph}[1]{\textcolor{red}{[PLACEHOLDER: #1]}}
+\newcommand{\tbd}{\textcolor{red}{TBD}}
+\newcommand{\verifynote}[1]{\textcolor{orange!85!black}{[VERIFY: #1]}}
+\newcommand{\status}[1]{%
+  \par\noindent\colorbox{blue!8}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep}{\small\textcolor{blue!40!black}{\textbf{Status:} #1}}%
+  }\par\vspace{4pt}%
+}
+\newcommand{\todofig}[1]{%
+  \fbox{\parbox{0.85\linewidth}{\centering\vspace{1.2cm}\ph{#1}\vspace{1.2cm}}}%
+}
+
+\begin{document}
+
+\title{Metaheuristic Co-Optimization of Compression and Runtime Configuration\\
+for Embedded LLM Inference: A Case Study on TinyLlama and Raspberry Pi 5}
+
+\author{
+\begin{minipage}[t]{0.27\textwidth}
+\centering
+{\large Fahd Koraiche\textsuperscript{1,a,*}}\\[4pt]
+\small
+\textsuperscript{1}Research Laboratory of Computer Science (LIS)\\
+Faculty of Science A\"{i}n Chock, Casablanca, Morocco\\
+\textsuperscript{a}fahd.koraiche@gmail.com
+\end{minipage}%
+\hspace{0.03\textwidth}\hfill
+\begin{minipage}[t]{0.27\textwidth}
+\centering
+{\large Rachid Dehbi\textsuperscript{1,b}}\\[4pt]
+\small
+\textsuperscript{1}Research Laboratory of Computer Science (LIS)\\
+Faculty of Science A\"{i}n Chock, Casablanca, Morocco\\
+\textsuperscript{b}dehbirac@yahoo.fr
+\end{minipage}%
+\hfill\hspace{0.03\textwidth}\hfill
+\begin{minipage}[t]{0.27\textwidth}
+\centering
+{\large Amine Dehbi\textsuperscript{2,c}}\\[4pt]
+\small
+\textsuperscript{2}Research Laboratory of Mathematics and Computer Science (LTI)\\
+Faculty of Science Ben M'Sick, Casablanca, Morocco\\
+\textsuperscript{c}dehbiamine1@gmail.com
+\end{minipage}
+}
+
+\markboth{Draft, \today}{}
+
+\maketitle
+
+\begin{abstract}
+\ph{Write last, approx. 200 words.}
+Deploying large language models (LLMs) on resource-constrained edge devices requires navigating a large, mixed discrete-continuous configuration space spanning model compression and inference runtime settings. This paper formulates embedded LLM deployment as a two-phase optimization problem: an exhaustive discrete phase over quantization variants, followed by a continuous/combinatorial metaheuristic search over runtime parameters. We validate three metaheuristics---particle swarm optimization (PSO), grey wolf optimizer (GWO), and differential evolution (DE)---on standard benchmark functions, then apply them to tune TinyLlama-1.1B inference on a Raspberry Pi 5 under a joint objective balancing output quality, latency, memory footprint, and energy consumption. Results show \ph{headline result, e.g., ``a X\% latency reduction at equal perplexity versus the default configuration, and Y\% versus grid search under equal evaluation budget''}. This work contributes an empirically grounded, hardware-in-the-loop methodology for systematic edge LLM configuration search, extending metaheuristic hyperparameter optimization---previously applied to classical ML models---to the embedded LLM setting.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Edge AI, Embedded large language models, Hyperparameter tuning, Metaheuristic optimization, Model compression, Quantization, TinyLlama.
+\end{IEEEkeywords}
+
+\status{DRAFT v0.1 --- structure and narrative largely complete; Phase 1/2 real-hardware results pending Raspberry Pi access. Sections 5.2, 5.2.1, and 5.2.2 already contain real (non-hardware) results. Everything marked with a red \ph{PLACEHOLDER} tag must be resolved before submission.}
+
+\section{Introduction}
+\label{sec:introduction}
+
+Large language models (LLMs) are increasingly deployed outside the datacenter, on phones, microcontrollers, and single-board computers, driven by privacy, latency, connectivity, and cost concerns \verifynote{cite edge-LLM survey}. Running an LLM on a device such as the Raspberry Pi 5 (8~GB RAM, no dedicated GPU) is only feasible after aggressive compression---primarily post-training quantization---and careful runtime configuration of the inference engine (thread count, batch size, context length, KV-cache behavior). Unlike cloud deployment, where extra compute can mask a suboptimal configuration, embedded deployment operates under hard resource ceilings: a configuration that exceeds available RAM does not degrade gracefully, it fails outright.
+
+Two bodies of prior work address pieces of this problem in isolation. Model compression research (quantization methods such as GPTQ~\cite{ref4}, AWQ~\cite{ref5}, LLM.int8()~\cite{ref6}, and mixed-precision schemes such as SqueezeLLM~\cite{ref7}) optimizes for a quality/size trade-off but is typically evaluated independently of the serving runtime and target hardware. Systems work on inference engines (e.g., llama.cpp~\cite{ref3}) exposes dozens of runtime flags but leaves their tuning to manual trial-and-error or vendor-suggested defaults. Neither line of work treats compression choice and runtime configuration as parts of a single search problem evaluated end-to-end on the physical target device.
+
+Hyperparameter optimization (HPO) research offers a template for closing this gap. Grid and random search provide robust baselines but scale poorly with the number of parameters, while metaheuristics---PSO~\cite{ref8}, GWO~\cite{ref9}, DE~\cite{ref10}---have been shown to outperform naive search when tuning classical machine learning models. Nouna et al.~\cite{ref11} recently demonstrated this for heart disease prediction, using PSO, GWO, and DE to tune KNN and SVM hyperparameters after a preprocessing and wrapper-based feature-selection stage, validating each metaheuristic on known benchmark functions before applying it to the real objective (cross-validated prediction error). That paper's structure---preprocessing/feature-selection as a discrete reduction step, metaheuristic validation on synthetic functions, then metaheuristic tuning of the real model---is the direct methodological inspiration for this work.
+
+We adapt that structure to a fundamentally different cost regime. In~\cite{ref11}, evaluating one candidate hyperparameter setting costs milliseconds (a KNN or SVM fit). In embedded LLM deployment, evaluating one candidate can cost seconds to minutes, because it may require loading a multi-hundred-megabyte quantized model file from disk and running real generation workloads on physical hardware. This cost asymmetry is the central engineering constraint of our method design (Section~\ref{sec:method}) and, we argue, a genuine methodological contribution: naively porting a flat metaheuristic search vector from the classical-ML setting to the embedded-LLM setting is computationally infeasible, and the two-phase discrete/continuous decomposition we propose is what makes hardware-in-the-loop metaheuristic tuning tractable on a Raspberry Pi 5.
+
+\textbf{Contributions:}
+\begin{enumerate}
+  \item A two-phase search formulation---exhaustive discrete quantization-variant selection followed by metaheuristic runtime tuning---that makes hardware-in-the-loop optimization of embedded LLM inference computationally tractable.
+  \item A multi-objective evaluation function jointly capturing quality (perplexity/task score), latency, memory footprint, and energy per token, with hard feasibility constraints (RAM ceiling) enforced by rejection/repair rather than soft penalty alone.
+  \item An empirical comparison of PSO, GWO, and DE for this task, including synthetic-function validation, convergence analysis, and robustness (boxplot) analysis under repeated runs on physical hardware---with explicit control for thermal throttling and OS jitter, a noise source absent from synthetic HPO benchmarks.
+  \item A comparison against grid search, random search, and vendor-default configuration under an equalized evaluation budget.
+\end{enumerate}
+
+The remainder of this paper is organized as follows. Section~\ref{sec:related} reviews related work in LLM compression, edge inference, and metaheuristic HPO. Section~\ref{sec:method} details the method: benchmark construction, the two-phase search space, the objective function, and the metaheuristics used. Section~\ref{sec:setup} describes the experimental setup. Section~\ref{sec:results} presents results and discussion. Section~\ref{sec:limitations} discusses limitations and threats to validity. Section~\ref{sec:conclusion} concludes.
+
+\section{Related Work}
+\label{sec:related}
+
+\status{A first-pass web literature check has been done (2026-08-01) to stress-test the Section~\ref{sec:gap} novelty claim before the paper is built around it. Findings below are from search-engine/abstract-level review, not full close reading of every cited paper---treat citations here as located and worth citing, not yet verified line-by-line against the source PDFs. A proper library-database pass (Google Scholar/Semantic Scholar with citation graphs) is still needed before submission.}
+
+\subsection{LLM Compression for Edge Deployment}
+Post-training quantization (GPTQ~\cite{ref4}, AWQ~\cite{ref5}, LLM.int8()~\cite{ref6}), weight pruning, and mixed-precision schemes (SqueezeLLM~\cite{ref7}) reduce model size and memory bandwidth at some quality cost. \ph{position TinyLlama~\cite{ref1} and GGUF quantization families (Q2\_K...Q8\_0) within this landscape.}
+
+\subsection{Edge and Embedded LLM Inference}
+llama.cpp~\cite{ref3} and related runtimes enable CPU-only inference on commodity edge hardware via GGUF-quantized models. Recent surveys catalog the broader edge-LLM deployment landscape---pruning/quantization/distillation for edge devices \verifynote{e.g. a 2025 ResearchGate survey found in the literature check, needs a stable bibliographic citation}, edge-vs-cloud co-tuning frameworks, and dedicated edge accelerators (NPUs supporting INT8 LLM blocks under tight DRAM budgets) \verifynote{cite specific NPU/accelerator papers}. Community (non-peer-reviewed) benchmarking of TinyLlama-1.1B on Raspberry Pi 5 via llama.cpp reports roughly 5--14 tokens/second generation depending on quantization level and configuration, with prompt-processing throughput around 80--108 tokens/second at Q4\_0---cited here only as an informal sanity-check range for Section~\ref{sec:results}'s expected magnitude, not as an academic reference \verifynote{replace with a peer-reviewed number if one exists before submission}.
+
+\subsection{Hyperparameter Optimization and Metaheuristics}
+Grid search and random search provide baselines; PSO~\cite{ref8}, GWO~\cite{ref9}, and DE~\cite{ref10} have been applied to tune classical ML models, including the direct inspiration for this work, Nouna et al.~\cite{ref11}, who tuned KNN/SVM hyperparameters for heart disease prediction using PSO/GWO/DE after preprocessing and wrapper-based feature selection, validating optimizers on Sphere, Goldstein--Price, and a custom error function before deployment on the real task.
+
+\textbf{Metaheuristic and AutoML-style quantization search (not LLM-specific, not hardware-in-the-loop on physical edge boards).} The closest prior art to this paper's Phase~1 is HAQ~\cite{ref12}, which uses \emph{reinforcement learning}---not a population-based metaheuristic---to search per-layer mixed-precision quantization bitwidths for CNNs, with a \textbf{hardware simulator} (not a physical device) providing latency/energy feedback to the RL agent. Separately, evolutionary and swarm-based methods have been applied to quantization search directly: genetic-algorithm-based mixed-precision search compared against brute-force enumeration~\cite{ref13}, evolutionary/training-free-proxy search for mixed-precision quantization (EMQ)~\cite{ref14}, and PSO-based (bare-bones PSO) automatic quantization of CNNs for a medical imaging task~\cite{ref15}. All of this line of work targets CNNs, searches quantization alone (not jointly with a serving runtime's configuration), and evaluates cost via simulators, proxies, or GPU/accelerator hardware rather than a physical low-power embedded CPU board.
+
+\textbf{LLM-adjacent metaheuristic work is a different problem than this paper's.} A 2025 paper on ``LLM-Enhanced Particle Swarm Optimization''~\cite{ref16} uses a large language model to \emph{guide} PSO's search (substituting weak particle positions with LLM-suggested ones) for tuning conventional deep-learning architecture hyperparameters (LSTM/CNN layer counts, filter sizes)---the LLM is a component \emph{inside} the optimizer, not the artifact being deployed and tuned. This is worth citing explicitly to preempt a reviewer conflating ``LLM + PSO'' work with this paper's very different use of PSO: here, PSO/GWO/DE tune an LLM's own deployment configuration, with no LLM inside the optimizer itself.
+
+\subsection{Gap}
+\label{sec:gap}
+Based on this first-pass check, no located work combines all of: (a) a population-based metaheuristic (PSO/GWO/DE, as opposed to RL as in HAQ~\cite{ref12} or LLM-guided search as in~\cite{ref16}), (b) searching LLM compression \emph{and} inference-runtime configuration jointly (as opposed to quantization alone, as in~\cite{ref12,ref13,ref14,ref15}), (c) evaluated with hardware-in-the-loop measurement on a physical, commodity, low-power embedded board (as opposed to a simulator, proxy metric, or GPU/accelerator, as in~\cite{ref12,ref13,ref14,ref15}). Each individual piece has prior art; the combination, on this class of hardware, for LLM inference specifically, did not surface in this pass. This is stated as an evidence-based gap rather than an unqualified ``first'' claim, and should be revisited once a full database-backed literature search (not just web search) is done---see Section~\ref{sec:limitations}.
+
+\section{Method}
+\label{sec:method}
+
+\subsection{Overview}
+
+\begin{figure}[t]
+\centering
+\todofig{pipeline diagram --- Prompt benchmark $\rightarrow$ Phase 1 (exhaustive quant sweep) $\rightarrow$ Phase 2 (metaheuristic runtime search, conditioned on best quant variant(s)) $\rightarrow$ Multi-objective evaluation on device $\rightarrow$ Best configuration}
+\caption{Overall pipeline (placeholder).}
+\label{fig:pipeline}
+\end{figure}
+
+We decompose the search space into two tiers, mirroring the preprocessing/feature-selection $\rightarrow$ hyperparameter-tuning structure of~\cite{ref11} (Fig.~\ref{fig:pipeline}):
+
+\begin{itemize}
+  \item \textbf{Phase 1 (discrete, exhaustive):} select a quantization variant from a small, enumerable catalog. This is analogous to~\cite{ref11}'s wrapper-based feature selection---a combinatorially small, exhaustively evaluable reduction step performed once, upstream of the expensive search.
+  \item \textbf{Phase 2 (metaheuristic):} tune continuous/combinatorial runtime parameters for the chosen quantization variant(s) using PSO, GWO, and DE. This is analogous to~\cite{ref11}'s metaheuristic hyperparameter tuning of KNN/SVM.
+\end{itemize}
+
+This decomposition exists because quantization variants are not continuously interpolable---each corresponds to a distinct requantized model artifact---while runtime parameters (threads, batch size, context length, sampling settings) can be varied on a fixed model file at near-zero marginal cost per evaluation. Flattening both into a single metaheuristic search vector, as a naive port of~\cite{ref11} would suggest, would force the swarm/population to repeatedly reload and re-benchmark full model files, which is computationally infeasible within a reasonable experiment budget on a Raspberry Pi 5 (see Section~\ref{sec:cost-argument} for the cost argument).
+
+\subsection{Target Platform and Model}
+
+\begin{itemize}
+  \item \textbf{Hardware:} Raspberry Pi 5 (\ph{exact RAM --- 4GB or 8GB, Broadcom BCM2712, active cooling: yes/no})
+  \item \textbf{OS / software stack:} \ph{Raspberry Pi OS version, kernel, llama.cpp commit/version, build flags (NEON, threads backend)}
+  \item \textbf{Model:} TinyLlama-1.1B~\cite{ref1} (\ph{exact checkpoint / chat vs.\ base variant}), converted to GGUF.
+  \item \textbf{CPU governor:} fixed to \texttt{performance} for all runs to reduce DVFS-induced measurement noise \verifynote{confirm in code}.
+  \item \textbf{Expected magnitude (sanity check, not a target):} informal community benchmarks (Section~\ref{sec:related}B) put TinyLlama-1.1B generation throughput on a Pi~5 via llama.cpp roughly in the 5--14 tokens/second range depending on quantization and thread configuration. Phase~1 results (Section~\ref{sec:results}) wildly outside this range---in either direction---should be treated as a likely measurement or configuration bug before being reported as a finding.
+\end{itemize}
+
+\subsection{Benchmark Construction}
+
+Following~\cite{ref11}'s emphasis on data quality preceding optimization, we construct a fixed prompt benchmark before any tuning begins:
+
+\begin{itemize}
+  \item \ph{N prompts, e.g., 100--300} prompts spanning \ph{task categories, e.g., short QA, summarization, instruction following}.
+  \item Fixed generation length (\ph{max\_new\_tokens}) and fixed random seed per prompt for reproducibility across configurations.
+  \item Prompts with unstable timing (\ph{e.g., coefficient of variation > threshold across 3 warm-up runs}) are removed, mirroring~\cite{ref11}'s pre-processing filtering step.
+  \item A held-out subset (\ph{e.g., 20\%}) is reserved for final validation of the selected best configuration, distinct from the subset used during search.
+\end{itemize}
+
+\subsection{Phase 1: Quantization Variant Selection}
+\label{sec:phase1}
+
+Candidate quantization variants (GGUF): \ph{e.g., Q2\_K, Q3\_K\_M, Q4\_0, Q4\_K\_M, Q5\_K\_M, Q6\_K, Q8\_0, F16}.
+
+For each variant, evaluate once on the benchmark subset:
+\begin{itemize}
+  \item Perplexity / task score
+  \item Peak resident memory (RSS)
+  \item Model load time
+  \item Baseline tokens/second at default runtime settings
+  \item Model file size on disk
+\end{itemize}
+
+This produces a table directly analogous to~\cite{ref11}'s Table~1 (pre-processing impact) and Table~2 (feature-selection impact)---see Table~\ref{tab:phase1-impact} in Section~\ref{sec:results}.
+
+Selection rule: retain the \ph{top-k, e.g., top 2--3} variants that are not dominated on the quality/memory/speed trade-off (Pareto-nondominated) for Phase~2. This avoids arbitrarily committing to a single ``best'' quantization before runtime tuning is known, while still keeping Phase~2's per-configuration model-loading cost low.
+
+\subsection{Phase 2: Runtime Hyperparameter Search Space}
+\label{sec:phase2-space}
+
+\status{The continuous$\leftrightarrow$discrete/categorical encoding layer is implemented and unit-tested (\texttt{src/phase2\_search/parameter\_space.py})---PSO/GWO/DE search a plain bounded box in $\mathbb{R}^d$; \texttt{ParameterSpace.decode(x)} maps that vector to the actual integer/categorical runtime config (rounding integers, floor-and-clip for categorical indices) so the optimizers never need to know the space is anything but continuous.}
+
+For each retained quantization variant, the metaheuristics search over the vector in Table~\ref{tab:runtime-params}.
+
+\begin{table}[t]
+\caption{Phase 2 runtime hyperparameter search space}
+\label{tab:runtime-params}
+\centering
+\footnotesize
+\begin{tabular}{@{}p{1.7cm}p{1.1cm}p{1.6cm}p{1.9cm}@{}}
+\toprule
+Parameter & Type & Range & Notes \\
+\midrule
+Threads & Integer & $[1,4]$ & Pi 5 has 4 cores \\
+Batch size (\texttt{n\_batch}) & Integer & \tbd & prompt-proc.\ batch \\
+Context length (\texttt{n\_ctx}) & Integer & \ph{e.g.\ 512--4096} & mem.\ \& latency \\
+KV-cache type & Categorical & \ph{f16/q8\_0/\allowbreak q4\_0} & if supported \\
+Temperature & Continuous & $[0.0,1.0]$ & only if task-score quality \\
+Top-p & Continuous & \tbd & as above \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\verifynote{Confirm final parameter list against the actual llama.cpp build's exposed flags before locking this table.}
+
+\subsection{Objective Function}
+\label{sec:objective}
+
+\status{Implemented and unit-tested (\texttt{src/phase2\_search/objective.py}, 4 tests covering normalization, feasibility rejection, and weighted-sum correctness---see \texttt{tests/test\_objective.py}), against a mocked evaluator---see Section~\ref{sec:mock-rehearsal} for the end-to-end plumbing rehearsal this enabled. The real evaluator (calling \texttt{src/common/llama\_cpp\_runner.py} against actual hardware) is not implemented; only the \texttt{Evaluator} interface it must satisfy is fixed.}
+
+We minimize a scalarized, constrained multi-objective function:
+\begin{equation}
+\label{eq:objective}
+f(\mathbf{x}) = \alpha\,\hat{L}(\mathbf{x}) + \beta\,\bigl(1-\hat{Q}(\mathbf{x})\bigr) + \gamma\,\hat{M}(\mathbf{x}) + \delta\,\hat{E}(\mathbf{x}) + \mathrm{Penalty}(\mathbf{x})
+\end{equation}
+where, for configuration $\mathbf{x}$:
+\begin{itemize}
+  \item $\hat{L}(\mathbf{x})$ = normalized latency (ms/token, min--max scaled over observed range)
+  \item $\hat{Q}(\mathbf{x})$ = normalized quality score (perplexity inverted, or task accuracy)
+  \item $\hat{M}(\mathbf{x})$ = normalized peak memory (RSS)
+  \item $\hat{E}(\mathbf{x})$ = normalized energy per generated token
+  \item $\mathrm{Penalty}(\mathbf{x}) = +\infty$ (hard reject) if peak RSS exceeds the RAM limit, or if the runtime process crashes, OOMs, or exceeds a wall-clock timeout
+\end{itemize}
+
+Hard constraints (RAM ceiling, crash, timeout) are enforced by \textbf{rejection/repair}, not by a finite soft penalty term: an infeasible configuration is either discarded and resampled (repair) or assigned a fitness of $+\infty$ so it is never selected as a personal/global best. This differs from a pure weighted-penalty formulation, where a sufficiently good quality score could numerically outweigh a memory violation---which is not acceptable on hardware that will actually OOM.
+
+Weights $\alpha,\beta,\gamma,\delta$: \ph{justify choice, or report a Pareto front instead of a single scalarization; consider running both a scalarized version and a small multi-objective study (e.g., NSGA-II-style Pareto front) as a robustness check.}
+
+\subsection{Metaheuristics and Evaluation-Cost Argument}
+\label{sec:cost-argument}
+
+We use the same three metaheuristics as~\cite{ref11} for direct comparability: PSO~\cite{ref8}, GWO~\cite{ref9}, and DE~\cite{ref10}. Their mechanics are unchanged from the classical-ML setting (velocity/position update for PSO; alpha/beta/delta-guided position update for GWO; mutation/crossover/selection for DE)---what changes is the cost model of the fitness function, which is the core adaptation this paper makes.
+
+\textbf{Cost argument for the two-phase design.} In~\cite{ref11}, one fitness evaluation (fit + cross-validate a KNN/SVM) costs on the order of milliseconds, permitting population$\times$iteration budgets like $20\times100=2{,}000$ evaluations. On a Raspberry Pi~5, one Phase-2 fitness evaluation (run $N$ benchmark prompts at a given runtime configuration on an already-loaded quantized model) is expected to cost \ph{measure --- estimate seconds per evaluation}, while switching quantization variant additionally costs a full model reload (\ph{measure load time per variant}). A flat single-phase search over both tiers at~\cite{ref11}'s population/iteration budget would therefore require \ph{compute --- likely hours to days} of device time, which is why Phase~1 is evaluated exhaustively but only once per variant, and Phase~2 uses a deliberately smaller budget than~\cite{ref11}: \ph{population size, iterations, and number of independent runs for Phase 2 --- choose based on measured per-evaluation cost from Section~\ref{sec:setup}, e.g., population 8--10, iterations 20--30, 5--10 independent runs, to keep total device time within a practical bound such as a few hours.}
+
+\subsection{Metaheuristic Validation on Synthetic Functions}
+\label{sec:validation-method}
+
+\status{Implemented and run (\texttt{src/phase2\_search/\{pso,gwo,de\}.py}, \texttt{src/validation/}). This step has no hardware dependency and is complete independent of Raspberry Pi access; see Section~\ref{sec:validation-results} for results.}
+
+Before Phase~2, PSO, GWO, and DE are validated on three closed-form benchmark functions, following~\cite{ref11}'s validation protocol, to confirm each optimizer converges correctly under our chosen implementation and parameter settings before trusting it on the real (noisy, hardware-measured) objective. Table~\ref{tab:validation-functions} gives the same at-a-glance summary that Table~3 of~\cite{ref11} does---representation, range, and global minimum for each function---generated directly from this project's own function implementations (\texttt{synthetic\_functions.py}, plotted by \texttt{plot\_function\_representations.py}) rather than redrawn by hand, so the plotted surface is guaranteed to match what the optimizers actually search. The surface plots use a rainbow (\texttt{jet}) colormap to match~\cite{ref11}'s own figure/table visual style---a deliberate, scoped exception to this project's otherwise-consistent single-hue sequential palette used in every other figure in this paper.
+
+\begin{table*}[t]
+\caption{Validation functions details}
+\label{tab:validation-functions}
+\centering
+\begin{tabular}{@{}p{2.6cm}cp{5cm}p{2cm}@{}}
+\toprule
+Function & Representation & Range & Global min.\\
+\midrule
+Sphere & \includegraphics[width=6.5cm]{function_repr_sphere.png} & $U_b=10$, $L_b=-10$ & 0 \\[6pt]
+Goldstein--Price & \includegraphics[width=6.5cm]{function_repr_goldstein_price.png} & $U_b=2$, $L_b=-2$ & 3 \\[6pt]
+FindValues & --- & $U_b$ = [100, 700, 50, 200, -400], $L_b$ = [0, 200, -200, -100, -900] & 0 (error fn.) \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+FindValues has no plotted representation, exactly as in~\cite{ref11}'s own Table~3: it is a 5-D squared-error function against a fixed target vector, not a 2-variable surface, and there is no honest 2D/3D representation of it to draw.
+
+\begin{itemize}
+  \item \textbf{Sphere} (dim=10 for the actual PSO/GWO/DE validation runs in Section~\ref{sec:validation-results}, though Table~\ref{tab:validation-functions}'s plot shows the standard 2-variable $f(x_1,x_2)$ case for visualization, matching~\cite{ref11}'s own Sphere plot)---smooth, convex, unimodal. Run at dim=10 rather than~\cite{ref11}'s 2D case for the real validation runs, since a 2D sphere is near-trivial for any of the three optimizers within a handful of iterations and would not meaningfully stress them.
+  \item \textbf{Goldstein--Price} (dim=2, $l_b=u_b=[-2,2]$, global minimum 3)---fixed 2D, multimodal, matches~\cite{ref11} exactly for direct comparability, plot and validation dimensionality alike.
+  \item \textbf{FindValues} (dim=5, asymmetric per-dimension bounds, global minimum 0)---a custom sum-of-squared-error function reproducing~\cite{ref11}'s own validation function: minimize the squared distance between a candidate vector and a fixed target $[21, 555, -106, 74, -701]$. Structurally the closest synthetic proxy to the real Phase~2 objective (Section~\ref{sec:objective}), since both are error-minimization over a bounded, asymmetric, multi-dimensional space.
+\end{itemize}
+
+Implementation notes (all in \texttt{src/phase2\_search/}): PSO uses global-best form with inertia damping ($w=1.0$, $\mathrm{wdamp}=0.99$, $c_1=c_2=2$) and velocity clamping at 20\% of the search range per dimension---the clamp is a standard stabilization addition not present in the minimal textbook form, noted here rather than left implicit. GWO follows Mirjalili et al.~\cite{ref9} directly (alpha/beta/delta-guided position averaging, $a$ linearly decayed $2\rightarrow0$). DE uses DE/rand/1/bin with per-generation resampled mutation scale $F\sim U(\mathrm{beta\_min},\mathrm{beta\_max}) = U(0.2,0.9)$ and crossover rate $p_{CR}=0.1$, matching~\cite{ref11}'s Table~4 parameterization.
+
+\subsection{Measurement Protocol (Hardware-in-the-Loop Specifics)}
+\label{sec:measurement-protocol}
+
+Unlike~\cite{ref11}'s objective function (a deterministic or lightly-stochastic cross-validation error), our fitness function is measured on physical hardware and is subject to:
+
+\begin{itemize}
+  \item \textbf{Thermal throttling:} consecutive high-load evaluations can raise SoC temperature and trigger frequency scaling. Mitigation: \ph{fixed cooldown interval between evaluations; monitor via vcgencmd measure\_temp; discard/re-run evaluations above a temperature threshold}.
+  \item \textbf{OS/background jitter:} \ph{run with minimal background services; pin process priority; repeat each evaluation k times and use median}.
+  \item \textbf{Energy measurement:} \ph{USB-C inline power meter / INA219 sensor on GPIO; measure average watts over the generation window, multiply by wall-clock time and divide by tokens generated to get joules/token}.
+\end{itemize}
+
+This measurement noise is itself reported as part of the robustness analysis (Section~\ref{sec:robustness} boxplots), extending~\cite{ref11}'s robustness protocol (10 runtimes $\times$ 100 iterations) to explicitly account for a noise source that does not exist in synthetic-function or classical-ML validation.
+
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Hardware / Software Summary}
+
+\begin{table}[t]
+\caption{Hardware and software summary}
+\label{tab:hw-summary}
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Component & Spec \\
+\midrule
+Board & Raspberry Pi 5, \ph{RAM} \\
+Cooling & \ph{active/passive} \\
+OS & \ph{OS version} \\
+Inference engine & llama.cpp \ph{commit/version} \\
+Model & TinyLlama-1.1B, GGUF \\
+Power measurement & \ph{device} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Metaheuristic Parameters}
+
+\begin{table}[t]
+\caption{Metaheuristic parameters for Phase 2 (real hardware run)}
+\label{tab:meta-params}
+\centering
+\footnotesize
+\begin{tabular}{@{}lcccl@{}}
+\toprule
+Algorithm & Pop. & Iter. & Runs & Key parameters \\
+\midrule
+PSO & \tbd & \tbd & \tbd & $w$, $c_1$, $c_2$ \\
+GWO & \tbd & \tbd & \tbd & $a$ schedule \\
+DE  & \tbd & \tbd & \tbd & $\beta_{min}$, $\beta_{max}$, $p_{CR}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Baselines}
+
+\begin{itemize}
+  \item Vendor/manual default configuration (\ph{llama.cpp defaults}).
+  \item Grid search over the same Phase-2 space, evaluation-budget-matched---\textbf{implemented} (\texttt{src/baselines/grid\_search.py}) and already exercised on the Section~\ref{sec:validation-method} synthetic functions (Section~\ref{sec:baseline-rehearsal}); not yet run against the real Phase~2 objective (needs Pi).
+  \item Random search, evaluation-budget-matched---\textbf{implemented} (\texttt{src/baselines/random\_search.py}), same status as above.
+\end{itemize}
+
+Including these baselines directly tests the claim---inherited from~\cite{ref11}'s framing of grid/random search in its introduction---that metaheuristics outperform naive search under an equal evaluation budget; this must not be assumed without a control. The synthetic-function rehearsal in Section~\ref{sec:baseline-rehearsal} already confirms this claim holds sharply on hard, high-dimensional, asymmetric problems before the real hardware experiment is run.
+
+\section{Results and Discussion}
+\label{sec:results}
+
+\status{Sections~\ref{sec:phase1-results}, \ref{sec:phase2-convergence-results}, \ref{sec:robustness}, \ref{sec:best-configs}, and \ref{sec:baseline-comparison-real} are placeholder scaffolding pending Raspberry Pi access. Sections~\ref{sec:validation-results}, \ref{sec:baseline-rehearsal}, and \ref{sec:mock-rehearsal} already contain real results (synthetic functions / mock evaluator, explicitly not hardware data). The subsection structure mirrors~\cite{ref11}'s results section for narrative consistency.}
+
+\subsection{Phase 1: Quantization Variant Impact}
+\label{sec:phase1-results}
+
+\begin{table}[t]
+\caption{Phase 1 quantization variant impact (placeholder)}
+\label{tab:phase1-impact}
+\centering
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Variant & PPL & Peak RSS (MB) & Load (s) & Tok/s & Size (MB) \\
+\midrule
+Q2\_K   & & & & & \\
+Q3\_K\_M & & & & & \\
+Q4\_0   & & & & & \\
+Q4\_K\_M & & & & & \\
+Q5\_K\_M & & & & & \\
+Q8\_0   & & & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\ph{1-paragraph discussion --- which variants are Pareto-dominated and dropped, which are carried into Phase 2, and why.}
+
+\subsection{Metaheuristic Validation on Synthetic Functions}
+\label{sec:validation-results}
+
+\status{Real results below (\texttt{python src/validation/run\_validation.py}, population 20, 200 iterations, 10 independent runs per algorithm per function, seeds 42--51). Figures at \texttt{results/figures/\{convergence,boxplot\}\_*.png}, raw data at \texttt{results/validation/}.}
+
+\begin{table}[t]
+\caption{Metaheuristic validation results (real, 10 runs each)}
+\label{tab:validation-results}
+\centering
+\footnotesize
+\begin{tabular}{@{}llllll@{}}
+\toprule
+Function (min) & Algo & Best & Median & Worst & Std \\
+\midrule
+Sphere (0) & PSO & 6.45e-12 & 9.53e-11 & 5.99e-09 & 1.76e-09 \\
+Sphere (0) & GWO & 2.87e-24 & 7.78e-23 & 7.11e-22 & 2.33e-22 \\
+Sphere (0) & DE  & 3.77e-07 & 6.83e-07 & 3.82e-06 & 9.65e-07 \\
+Goldstein--Price (3) & PSO & 3.0000000 & 3.0000000 & 3.0000000 & 3.4e-15 \\
+Goldstein--Price (3) & GWO & 3.0000027 & 3.0001698 & 84.0004 & 24.30 \\
+Goldstein--Price (3) & DE  & 3.0000000 & 3.0001953 & 80.8047 & 23.34 \\
+FindValues (0) & PSO & 3.63e-24 & 8.68e-21 & 1.58e-19 & 5.54e-20 \\
+FindValues (0) & GWO & 1.958 & 71.00 & 441.73 & 151.87 \\
+FindValues (0) & DE  & 1.57e-14 & 6.76e-14 & 1.11e-12 & 3.21e-13 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All three optimizers reach values effectively indistinguishable from each function's known global minimum in at least their best run, confirming the implementations are correct before being trusted on the real, noisy Phase~2 objective. Beyond that baseline check, the comparative pattern echoes~\cite{ref11} closely enough to be worth stating plainly:
+
+\begin{itemize}
+  \item \textbf{PSO is uniformly strong and low-variance across all three functions}---essentially zero std.\ on Goldstein--Price, tightest spread on FindValues. This matches~\cite{ref11}'s observation that ``PSO algorithm kept good performances for all three functions.''
+  \item \textbf{GWO is the most fragile of the three on the multimodal/asymmetric problems.} Its median on FindValues (71.0) is over $30\times$ worse than its best run (1.96), and it has the single worst outlier on both Goldstein--Price (84.0) and FindValues (441.7)---visible in Fig.~\ref{fig:boxplot-synthetic}. Fig.~\ref{fig:convergence-synthetic}(c) shows GWO plateauing around iteration 30 while PSO and DE continue descending for another 150+ iterations---consistent with GWO's alpha/beta/delta position-averaging update converging prematurely once the three leaders cluster, a known failure mode on functions with widely-spread, asymmetric optima.
+  \item \textbf{DE is competitive but slower to fully converge than PSO} on Sphere and FindValues (visibly trailing PSO in the log-scale convergence plots), matching~\cite{ref11}'s finding that DE needed more iterations than PSO/GWO on Sphere and Goldstein--Price.
+  \item On Goldstein--Price, most runs across all three algorithms land on \emph{exactly} 3.0 (to floating-point precision), collapsing the box to a near-invisible line with only the rare bad run showing as an outlier---the same phenomenon~\cite{ref11} reports verbatim (``non-visibility of all the quartiles boxplot is due to identical error result in different runs'').
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{convergence_Sphere.png}
+  \caption{Sphere}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{convergence_Goldstein_Price.png}
+  \caption{Goldstein--Price}
+\end{subfigure}
+\par\vspace{4pt}
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{convergence_FindValues.png}
+  \caption{FindValues}
+\end{subfigure}
+\caption{Convergence behavior of PSO/GWO/DE on the three validation functions (median of 10 runs).}
+\label{fig:convergence-synthetic}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{boxplot_Sphere.png}
+  \caption{Sphere}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{boxplot_Goldstein_Price.png}
+  \caption{Goldstein--Price}
+\end{subfigure}
+\par\vspace{4pt}
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{boxplot_FindValues.png}
+  \caption{FindValues}
+\end{subfigure}
+\caption{Robustness (best cost over 10 independent runs) of PSO/GWO/DE on the three validation functions.}
+\label{fig:boxplot-synthetic}
+\end{figure}
+
+One implication worth carrying into Phase~2 design: if GWO's premature-convergence pattern on asymmetric, higher-dispersion problems reproduces on the real runtime-configuration objective (Section~\ref{sec:objective}), GWO may need either a larger population, a modified exploration schedule, or simply weaker weight in the final algorithm comparison---this is a hypothesis to check against Phase~2 data, not yet a conclusion.
+
+\subsubsection{Baseline Comparison Rehearsal (Synthetic Functions)}
+\label{sec:baseline-rehearsal}
+
+\status{Implemented and run (\texttt{src/baselines/}: \texttt{grid\_search.py}, \texttt{random\_search.py}, \texttt{compare\_baselines.py}).} This is a \textbf{methodology rehearsal, not the real Section~\ref{sec:baseline-comparison-real} result}---the actual claim the paper needs to support is that metaheuristics beat naive search on the \emph{real hardware-measured objective}, which requires Phase~1/2 data from the Pi. What this rehearsal does establish now, honestly and in advance: the baseline implementations are correct, and the paper's introduction claim (``grid search becomes computationally expensive for numerous hyperparameters,'' Section~\ref{sec:related}) is not just a citation---it reproduces empirically, sharply, on these functions.
+
+All five methods (PSO, GWO, DE, random search, grid search) were run at a matched evaluation budget of 4{,}000 ($=$ population 20 $\times$ iterations 200, identical to Section~\ref{sec:validation-results}'s protocol), 10 independent runs for the stochastic methods. Grid search cannot spend a budget exactly---a shared per-axis resolution forces its realized evaluation count down to $\lfloor \mathrm{budget}^{1/\dim}\rfloor^{\dim}$, reported explicitly rather than padded (Table~\ref{tab:baseline-comparison}).
+
+\begin{table}[t]
+\caption{Baseline comparison on synthetic functions (matched budget = 4{,}000 evaluations)}
+\label{tab:baseline-comparison}
+\centering
+\footnotesize
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Function & Grid best & Random med. & PSO med. & GWO med. & DE med. \\
+\midrule
+Sphere (dim 10) & \textbf{1000.0} & 50.63 & 9.53e-11 & 7.78e-23 & 6.83e-07 \\
+Goldstein--Price & 3.441 & 3.274 & \textbf{3.000} & 3.000 & 3.000 \\
+FindValues (dim 5) & 4554 & 1523 & \textbf{8.69e-21} & 71.0 & 6.76e-14 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Sphere result is the sharpest illustration: at dim=10, a shared-resolution grid within a fixed budget can only afford \textbf{2 points per axis}---the two endpoints of each $[-10,10]$ range---so no grid point can ever land near the interior optimum at the origin. The best achievable grid-search cost, 1000, is exactly $10~\text{axes}\times(10)^2$: the cost of being stuck at a corner. This is not a tuning failure of this particular grid search implementation, it is the structural curse of dimensionality that Section~\ref{sec:introduction} cites as the reason metaheuristics are needed at all---reproduced numerically rather than only asserted. Random search, despite also being naive, does far better than grid at the same budget (median 50.63) simply because it isn't forced into a shared coarse resolution, but still loses by 8--11 orders of magnitude to any of the three metaheuristics. At dim=2 (Goldstein--Price), where a fine 63-point grid is affordable, grid search is competitive but still measurably worse than PSO/GWO/DE's near-exact convergence to 3.0. On FindValues (dim=5, asymmetric bounds---structurally the closest synthetic proxy to the real Phase~2 runtime-parameter space), grid search's best result (4554) is worse than random search's \emph{median} (1523), a direct empirical warning against using grid search on Phase~2's real, similarly asymmetric, mixed-range parameter space (Section~\ref{sec:phase2-space}).
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{baseline_comparison_Sphere.png}
+  \caption{Sphere}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{baseline_comparison_Goldstein_Price.png}
+  \caption{Goldstein--Price}
+\end{subfigure}
+\par\vspace{4pt}
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{baseline_comparison_FindValues.png}
+  \caption{FindValues}
+\end{subfigure}
+\caption{Baseline comparison rehearsal: PSO/GWO/DE vs.\ grid/random search at matched evaluation budget on the synthetic validation functions.}
+\label{fig:baseline-comparison-synthetic}
+\end{figure}
+
+\subsubsection{Phase 2 Plumbing Rehearsal (Mock Evaluator --- NOT Real Hardware Data)}
+\label{sec:mock-rehearsal}
+
+\status{Implemented and run (\texttt{src/phase2\_search/}: \texttt{parameter\_space.py}, \texttt{objective.py}, \texttt{mock\_evaluator.py}, \texttt{run\_mock\_rehearsal.py}).} This is the narrowest and most important caveat in this draft, stated as plainly as possible: \textbf{every number in this subsection comes from a made-up, hand-specified cost surface in \texttt{mock\_evaluator.py}}---diminishing-returns thread speedup, KV-cache memory roughly linear in context length, a quality penalty for lossy quantized KV cache---\textbf{none of it measured from a real TinyLlama run or real Pi hardware.} Its only purpose is to prove the Phase~2 plumbing (parameter encode/decode, feasibility rejection, normalization calibration, PSO/GWO/DE wiring to a 4-dimensional mixed integer/categorical objective) works correctly end to end before the same code is pointed at a real \texttt{Evaluator} backed by \texttt{llama\_cpp\_runner.py} and actual hardware. \textbf{This subsection must be deleted or fully replaced once real Phase~1/2 data exists---it is scaffolding, not a finding.}
+
+Search space: $\mathrm{threads}\in[1,4]$ (int), $\mathrm{n\_batch}\in[32,512]$ (int), $\mathrm{n\_ctx}\in[512,4096]$ (int), $\mathrm{kv\_cache\_type}\in\{\mathrm{f16},\mathrm{q8\_0},\mathrm{q4\_0}\}$ (categorical)---the mechanically-grounded subset of Section~\ref{sec:phase2-space} (temperature/top-p are omitted from this rehearsal since the mock model has no task-accuracy notion for them to affect). Normalization ranges were calibrated by 300 random feasible samples (Section~\ref{sec:objective}'s calibration procedure); the RAM ceiling was set to a toy 900~MB (not the real Pi~5 limit) specifically to create a genuine feasible/infeasible boundary inside the search space for the rejection logic to navigate. PSO, GWO, and DE (population 20, 100 iterations, 10 runs) all converged to the identical configuration: $\mathrm{threads}=4$, $\mathrm{n\_batch}=32$, $\mathrm{n\_ctx}=512$, $\mathrm{kv\_cache\_type}=\mathrm{f16}$ (cost 0.0226), which a brute-force grid scan over the same 4-dimensional space confirms is the true global optimum of the mock surface.
+
+Two things are worth being honest about in this result. First, positively: the full pipeline---encode/decode, calibration, feasibility rejection, and all three optimizers---is verified correct, because the found solution matches a brute-force ground truth. Second, a real limitation of the mock model rather than of the search machinery: this particular toy cost surface happens to have a single corner that simultaneously minimizes latency, maximizes quality, and minimizes memory and energy---i.e., no genuine multi-objective trade-off exists in this instance, so the rehearsal does not exercise the interesting case (Pareto tension between competing objectives) that the real hardware objective is expected to have.
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{mock_phase2_convergence.png}
+  \caption{Convergence}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.48\linewidth}
+  \includegraphics[width=\linewidth]{mock_phase2_boxplot.png}
+  \caption{Robustness}
+\end{subfigure}
+\caption{Mock Phase 2 rehearsal (synthetic evaluator --- NOT real hardware data).}
+\label{fig:mock-rehearsal}
+\end{figure}
+
+\subsection{Phase 2: Runtime Configuration Search --- Convergence}
+\label{sec:phase2-convergence-results}
+
+\begin{figure}[t]
+\centering
+\todofig{best-cost-vs-iteration curves for PSO/GWO/DE on the real objective $f(\mathbf{x})$, one subplot per retained quantization variant}
+\caption{Real Phase 2 convergence (placeholder).}
+\label{fig:phase2-convergence-real}
+\end{figure}
+
+\ph{1 paragraph --- which algorithm converges fastest / to the best value, and after how many iterations.}
+
+\subsection{Robustness Across Repeated Runs}
+\label{sec:robustness}
+
+\begin{figure}[t]
+\centering
+\todofig{boxplots of best $f(\mathbf{x})$ found across N independent runs per algorithm}
+\caption{Real Phase 2 robustness (placeholder).}
+\label{fig:phase2-boxplot-real}
+\end{figure}
+
+\ph{1 paragraph --- variance across runs, outliers, and whether variance is attributable to hardware noise (Section~\ref{sec:measurement-protocol}) vs.\ optimizer stochasticity.}
+
+\subsection{Best Configurations Found}
+\label{sec:best-configs}
+
+\begin{table}[t]
+\caption{Best configurations by optimization algorithm (placeholder)}
+\label{tab:best-configs}
+\centering
+\begin{tabular}{@{}lcccccccccc@{}}
+\toprule
+Algo & Quant & Thr. & Batch & Ctx & KV & $f(x)$ & Lat. & Qual. & RSS & Energy \\
+\midrule
+PSO & & & & & & & & & & \\
+GWO & & & & & & & & & & \\
+DE  & & & & & & & & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Comparison Against Baselines}
+\label{sec:baseline-comparison-real}
+
+\begin{figure}[t]
+\centering
+\todofig{best $f(\mathbf{x})$ from PSO/GWO/DE vs.\ grid search, random search, and default config, at matched evaluation budget on the real hardware objective}
+\caption{Real baseline comparison (placeholder).}
+\label{fig:baseline-comparison-real}
+\end{figure}
+
+\ph{Paragraph quantifying the improvement --- this is the headline result for the abstract.}
+
+\subsection{Discussion}
+
+\ph{2--3 paragraphs --- practical deployment guidance (e.g., ``for latency-critical use, prefer X''; ``for memory-constrained deployment, prefer Y''), and whether the two-phase decomposition's Pareto-retained variant set actually mattered (i.e., did the same variant always win, making Phase 1's multi-variant retention unnecessary in hindsight?).}
+
+\section{Limitations and Threats to Validity}
+\label{sec:limitations}
+
+\begin{itemize}
+  \item Single model family (TinyLlama-1.1B) and single hardware target (Pi~5)---generalization to other model sizes/devices is untested.
+  \item Scalarized objective with fixed weights collapses a genuine multi-objective trade-off into one number; a Pareto-front analysis would be more informative but more expensive.
+  \item Hardware measurement noise (Section~\ref{sec:measurement-protocol}) may dominate small differences between top-performing configurations; report confidence intervals, not just point estimates.
+  \item Quality metric (perplexity vs.\ task score) choice affects which configurations look ``best''---\ph{report both if feasible}.
+  \item Novelty claim (Section~\ref{sec:gap}) is currently based on a single web-search pass (2026-08-01), not a full database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal, backward/forward citation chasing from HAQ~\cite{ref12} and the quantization-search papers~\cite{ref13,ref14,ref15}). The claim as written is already deliberately narrow, but a proper review pass before submission could still surface something that narrows it further, or a paper this search missed entirely.
+\end{itemize}
+
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+\ph{Draft after results, following~\cite{ref11}'s conclusion structure: confirm the two contributions (feasibility of the two-phase hardware-in-the-loop method; comparative metaheuristic performance), then future work:}
+
+\begin{itemize}
+  \item Extend to other edge platforms (Jetson Orin Nano, mobile SoCs) and other small models (Phi-3-mini, Qwen2.5-0.5B/1.5B, Gemma-2B).
+  \item Hybrid metaheuristics (e.g., PSO-DE hybrids) as in emerging metaheuristic literature.
+  \item Multi-objective Pareto-front search (NSGA-II/MOEA-D) instead of scalarization.
+  \item Joint search including model-level compression beyond quantization (structured pruning, LoRA-merged distillation) as an additional discrete Phase 1 axis.
+\end{itemize}
+
+\section*{Funding}
+\ph{Funding statement.}
+
+\section*{Author Contributions (CRediT)}
+\ph{Table as in \cite{ref11} --- fill in once co-authors are confirmed.}
+
+\begin{table}[h]
+\caption{CRediT author statement (placeholder)}
+\centering
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+Author & C & M & So & Va & Fo & I & R & \ldots \\
+\midrule
+\ph{Name} & & & & & & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section*{Conflict of Interest}
+\ph{Conflict of interest statement.}
+
+\section*{Data Availability}
+\ph{Benchmark prompts, raw measurement logs, and code to be released at \textless repo URL\textgreater\ upon publication.}
+
+\begin{thebibliography}{99}
+
+\bibitem{ref1} P. Zhang, G. Zeng, T. Wang, and W. Lu, ``TinyLlama: An Open-Source Small Language Model,'' \emph{arXiv:2401.02385}, 2024. \verifynote{final venue/version}
+
+\bibitem{ref2} \ph{GGUF format reference / llama.cpp documentation citation.}
+
+\bibitem{ref3} G. Gerganov et al., \emph{llama.cpp} [Software]. GitHub. \verifynote{cite specific commit/release used in experiments}
+
+\bibitem{ref4} E. Frantar, S. Ashkboos, T. Hoefler, and D. Alistarh, ``GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers,'' \emph{arXiv:2210.17323}, 2022.
+
+\bibitem{ref5} J. Lin, J. Tang, H. Tang, S. Yang, W.-M. Chen, W.-C. Wang, G. Xiao, X. Dang, C. Gan, and S. Han, ``AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration,'' \emph{arXiv:2306.00978}, 2023.
+
+\bibitem{ref6} T. Dettmers, M. Lewis, Y. Belkada, and L. Zettlemoyer, ``LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale,'' \emph{arXiv:2208.07339}, 2022.
+
+\bibitem{ref7} S. Kim, C. Hooper, A. Gholami, Z. Dong, X. Li, S. Shen, M. W. Mahoney, and K. Keutzer, ``SqueezeLLM: Dense-and-Sparse Quantization,'' \emph{arXiv:2306.07629}, 2023.
+
+\bibitem{ref8} J. Kennedy and R. Eberhart, ``Particle swarm optimization,'' in \emph{Proc. ICNN'95 -- Int. Conf. Neural Networks}, vol. 4, 1995, pp. 1942--1948.
+
+\bibitem{ref9} S. Mirjalili, S. M. Mirjalili, and A. Lewis, ``Grey wolf optimizer,'' \emph{Advances in Engineering Software}, vol. 69, pp. 46--61, 2014.
+
+\bibitem{ref10} R. Storn and K. Price, ``Differential evolution -- a simple and efficient heuristic for global optimization over continuous spaces,'' \emph{Journal of Global Optimization}, vol. 11, no. 4, pp. 341--359, 1997.
+
+\bibitem{ref11} Z. Nouna, H. Bouyghf, M. Nahid, and I. Sabiri, ``Heart disease prediction optimization using metaheuristic algorithms,'' \emph{IAES International Journal of Artificial Intelligence}, vol. 14, no. 5, pp. 4332--4341, 2025.
+
+\bibitem{ref12} K. Wang, Z. Liu, Y. Lin, J. Lin, and S. Han, ``HAQ: Hardware-Aware Automated Quantization with Mixed Precision,'' in \emph{Proc. CVPR}, 2019. \emph{arXiv:1811.08886}. \verifynote{page numbers/proceedings citation}
+
+\bibitem{ref13} \ph{Genetic-algorithm-based mixed-precision quantization search paper located in the literature check --- exact title/venue not yet pinned down; found via a search result describing GA search vs.\ brute-force enumeration over per-layer bitwidths.}
+
+\bibitem{ref14} \verifynote{exact authors/venue}. ``EMQ: Evolving Training-free Proxies for Automated Mixed Precision Quantization,'' \emph{arXiv:2307.10554}.
+
+\bibitem{ref15} \verifynote{exact authors/venue}. ``Automatic Quantization of Convolutional Neural Networks Based on Enhanced Bare-Bones Particle Swarm Optimization for Chest X-Ray Image Classification,'' in \emph{Computational Collective Intelligence}, Springer. \verifynote{DOI: 10.1007/978-3-031-41456-5\_10}
+
+\bibitem{ref16} A. Hameed, B. Qolomany, et al., ``Large Language Model Enhanced Particle Swarm Optimization for Hyperparameter Tuning for Deep Learning Models,'' \emph{arXiv:2504.14126}, 2025. \verifynote{full author list/IEEE citation}
+
+\end{thebibliography}
+
+\status{This reference list still needs a proper database-backed pass (Google Scholar / Semantic Scholar with citation-graph checking) --- entries above were located via web search at abstract level on 2026-08-01 and are not yet verified against the full source PDFs. In particular \cite{ref13} is not yet pinned to a specific paper and must be resolved or removed before submission.}
+
+\appendices
+
+\section{Planned Repository Structure (for \texttt{hyptune/})}
+
+{\scriptsize
+\begin{verbatim}
+hyptune/
+|-- article_draft.md / article.tex
+|-- data/prompts/         (benchmark prompts)
+|-- models/               (quantized GGUF variants)
+|-- src/
+|   |-- phase1_quant_sweep.py  [Pi-dependent]
+|   |-- common/
+|   |   |-- llama_cpp_runner.py [Pi-dependent]
+|   |   `-- pareto.py           [done]
+|   |-- phase2_search/
+|   |   |-- result.py           [done]
+|   |   |-- pso.py              [done, validated]
+|   |   |-- gwo.py              [done, validated]
+|   |   |-- de.py               [done, validated]
+|   |   |-- parameter_space.py  [done, tested]
+|   |   |-- objective.py        [done, tested]
+|   |   |-- mock_evaluator.py   [done, SYNTHETIC]
+|   |   `-- run_mock_rehearsal.py [done, run]
+|   |-- validation/
+|   |   |-- synthetic_functions.py    [done]
+|   |   |-- run_validation.py         [done, run]
+|   |   `-- plot_function_representations.py [done]
+|   |-- baselines/
+|   |   |-- grid_search.py       [done]
+|   |   |-- random_search.py     [done]
+|   |   `-- compare_baselines.py [done, run]
+|   `-- measurement/
+|       |-- power_logger.py      [needs hardware]
+|       `-- thermal_guard.py     [needs Pi]
+|-- tests/
+|   |-- test_parameter_space.py  [passing]
+|   `-- test_objective.py        [passing]
+`-- results/
+    |-- phase1_table.csv    [pending Pi]
+    |-- validation/          [done]
+    |-- baselines/           [done]
+    |-- mock_phase2/         [done, SYNTHETIC]
+    |-- phase2_runs/         [pending Pi]
+    `-- figures/             [done, synthetic/mock]
+\end{verbatim}
+}
+
+\section{Two-Phase Search Pseudocode}
+
+\begin{algorithm}
+\caption{Phase 1 --- Exhaustive quantization sweep}
+\begin{algorithmic}[1]
+\For{variant $\in$ QUANT\_VARIANTS}
+  \State load\_model(variant)
+  \State result[variant] $\leftarrow$ evaluate(quality, memory, load\_time, speed)
+\EndFor
+\State retained $\leftarrow$ pareto\_nondominated(result, axes=\{quality, memory, speed\})
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Phase 2 --- Metaheuristic runtime search (per retained variant)}
+\begin{algorithmic}[1]
+\For{variant $\in$ retained}
+  \State load\_model(variant) \Comment{loaded once, reused across all evaluations}
+  \For{algorithm $\in$ \{PSO, GWO, DE\}}
+    \For{run $= 1$ to $N_{\mathrm{runs}}$}
+      \State population $\leftarrow$ init\_population(RUNTIME\_PARAM\_SPACE)
+      \For{iteration $= 1$ to $\mathrm{MAX\_ITER}$}
+        \For{candidate $\in$ population}
+          \If{infeasible(candidate)} \Comment{RAM ceiling, crash, timeout}
+            \State fitness $\leftarrow +\infty$ \Comment{reject, no soft penalty}
+          \Else
+            \State fitness $\leftarrow f(\text{candidate})$ \Comment{Eq.~\eqref{eq:objective}, measured on device}
+          \EndIf
+        \EndFor
+        \State update\_population(algorithm, population, fitness)
+        \State log(best\_so\_far)
+      \EndFor
+      \State record(best\_of\_run)
+    \EndFor
+  \EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

@@ -1,0 +1,63 @@
+# Phase 1 configuration: exhaustive quantization-variant sweep.
+# Fields marked VERIFY are environment-specific and must be confirmed/edited
+# before running — they are not guesses about your setup, they are the
+# actual knobs you need to point at your hardware and model source.
+
+base_model:
+  # F16 (unquantized) GGUF source. Two ways to get it:
+  #   1) A repo on the Hugging Face Hub that already hosts a converted F16 GGUF.
+  #   2) Convert yourself from the original HF transformers checkpoint using
+  #      llama.cpp's convert_hf_to_gguf.py, then point local_path at the output.
+  # VERIFY: exact repo id / filename before running — GGUF re-uploads change names often.
+  hf_repo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"     # VERIFY: may not host GGUF directly
+  hf_filename: null                                  # VERIFY: set if hf_repo hosts a .gguf file directly
+  # If hf_filename is null, the script expects local_path to already exist
+  # (produced by convert_hf_to_gguf.py) and will not attempt a download.
+  local_path: "models/tinyllama-1.1b-chat-v1.0-f16.gguf"
+
+# Quantization variants to sweep. Names must match llama-quantize's accepted
+# type strings exactly (run `llama-quantize --help` on your build to confirm
+# the exact set supported by your llama.cpp version).
+quant_variants:
+  - Q2_K
+  - Q3_K_M
+  - Q4_0
+  - Q4_K_M
+  - Q5_K_M
+  - Q6_K
+  - Q8_0
+
+llama_cpp:
+  # VERIFY: path to your llama.cpp build's bin/ directory on the target device
+  # (e.g. on the Raspberry Pi 5, after `cmake --build build`).
+  bin_dir: "/home/pi/llama.cpp/build/bin"
+  quantize_bin: "llama-quantize"
+  bench_bin: "llama-bench"
+  perplexity_bin: "llama-perplexity"
+
+bench:
+  threads: 4          # Pi 5 has 4 cores; this is the Phase 1 baseline, not the Phase 2 search
+  n_prompt: 512        # prompt-processing tokens for llama-bench's pp test
+  n_gen: 128           # generation tokens for llama-bench's tg test
+  repetitions: 3       # llama-bench -r; median is more robust to thermal/OS jitter
+
+perplexity:
+  # VERIFY: point this at a real held-out corpus (e.g. wikitext-2-raw's
+  # wiki.test.raw) before drawing any conclusions. The bundled sample file is
+  # only a smoke-test fixture — too small and too repetitive to be a valid
+  # perplexity benchmark, and using it for real Section 5.1 numbers would be wrong.
+  corpus_path: "data/prompts/perplexity_smoke_sample.txt"
+  ctx_size: 512
+
+output:
+  results_dir: "results"
+  models_dir: "models"
+  table_csv: "results/phase1_table.csv"
+  retained_yaml: "results/phase1_retained.yaml"
+
+# Pareto selection: axes and direction ("max" = higher is better).
+# Used to pick the non-dominated quant variants carried into Phase 2.
+pareto_axes:
+  quality: max     # computed as -perplexity in the script (lower PPL = higher quality)
+  tokens_per_sec: max
+  peak_rss_mb: min

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Large model artifacts -- regenerate/download on whatever machine runs
+# Phase 1 (the Pi), don't version multi-hundred-MB/GB binaries in git.
+*.gguf
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# OS cruft
+.DS_Store
+Thumbs.db
