@@ -79,7 +79,7 @@ Deploying large language models (LLMs) on resource-constrained edge devices requ
 Edge AI, Embedded large language models, Hyperparameter tuning, Metaheuristic optimization, Model compression, Quantization, TinyLlama.
 \end{IEEEkeywords}
 
-\status{DRAFT v0.1 --- structure and narrative largely complete; Phase 1/2 real-hardware results pending Raspberry Pi access. Sections 5.2, 5.2.1, and 5.2.2 already contain real (non-hardware) results. Everything marked with a red \ph{PLACEHOLDER} tag must be resolved before submission.}
+\status{DRAFT v0.2 --- structure and narrative largely complete. Phase 1 (all 7 quant variants) and Phase 2 for Q4\_K\_M are real hardware results from the Raspberry Pi 5. Phase 2 for Q2\_K and Q8\_0 is running unattended on the Pi as of this draft. Sections 5.2, 5.2.1, and 5.2.2 contain real (non-hardware) synthetic-validation results. Everything marked with a red \ph{PLACEHOLDER} tag must be resolved before submission.}
 
 \section{Introduction}
 \label{sec:introduction}
@@ -189,28 +189,26 @@ Selection rule: retain the \ph{top-k, e.g., top 2--3} variants that are not domi
 
 \status{The continuous$\leftrightarrow$discrete/categorical encoding layer is implemented and unit-tested (\texttt{src/phase2\_search/parameter\_space.py})---PSO/GWO/DE search a plain bounded box in $\mathbb{R}^d$; \texttt{ParameterSpace.decode(x)} maps that vector to the actual integer/categorical runtime config (rounding integers, floor-and-clip for categorical indices) so the optimizers never need to know the space is anything but continuous.}
 
-For each retained quantization variant, the metaheuristics search over the vector in Table~\ref{tab:runtime-params}.
+For each searched quantization variant, the metaheuristics search over a 4-dimensional mixed integer/categorical vector (Table~\ref{tab:runtime-params}), \textbf{confirmed against the real llama.cpp build and its exposed CLI flags} (\texttt{src/phase2\_search/run\_real\_phase2.py::build\_space}).
 
 \begin{table}[t]
-\caption{Phase 2 runtime hyperparameter search space}
+\caption{Phase 2 runtime hyperparameter search space (final)}
 \label{tab:runtime-params}
 \centering
 \footnotesize
-\begin{tabular}{@{}p{1.7cm}p{1.1cm}p{1.6cm}p{1.9cm}@{}}
+\begin{tabular}{@{}p{1.7cm}p{1.1cm}p{1.4cm}p{2.3cm}@{}}
 \toprule
 Parameter & Type & Range & Notes \\
 \midrule
-Threads & Integer & $[1,4]$ & Pi 5 has 4 cores \\
-Batch size (\texttt{n\_batch}) & Integer & \tbd & prompt-proc.\ batch \\
-Context length (\texttt{n\_ctx}) & Integer & \ph{e.g.\ 512--4096} & mem.\ \& latency \\
-KV-cache type & Categorical & \ph{f16/q8\_0/\allowbreak q4\_0} & if supported \\
-Temperature & Continuous & $[0.0,1.0]$ & only if task-score quality \\
-Top-p & Continuous & \tbd & as above \\
+Threads & Integer & $[1,4]$ & Pi 5, 4 Cortex-A76 cores \\
+Batch size (\texttt{n\_batch}) & Integer & $[32,512]$ & \texttt{-b} flag \\
+Context length (\texttt{n\_ctx}) & Integer & $[128,1024]$ & via \texttt{-p}; see note below \\
+KV-cache type & Categorical & \{f16, q8\_0, q4\_0\} & \texttt{-ctk}/\texttt{-ctv} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\verifynote{Confirm final parameter list against the actual llama.cpp build's exposed flags before locking this table.}
+Context length is realized via \texttt{llama-bench}'s \texttt{-p} (prompt-token count) rather than a \texttt{-c/--ctx-size} flag---\texttt{llama-bench} has no such flag (confirmed via \texttt{--help}). The upper bound was capped from an originally planned 2048 to 1024 after direct measurement (\texttt{diag\_eval.py}) showed larger prompt sizes cost real additional minutes per evaluation, which would have made the time-boxed real-hardware budget infeasible. Temperature and top-p, originally planned as continuous dimensions, were \textbf{dropped from the real search}: both only affect generation quality through sampling randomness, which perplexity---the quality metric actually available without a labeled downstream task---cannot meaningfully distinguish. Searching them would have spent real, expensive hardware evaluations moving along dimensions the objective is blind to.
 
 \subsection{Objective Function}
 \label{sec:objective}
@@ -509,63 +507,123 @@ Two things are worth being honest about in this result. First, positively: the f
 \label{fig:mock-rehearsal}
 \end{figure}
 
+\status{Real hardware run in progress on the Pi~5. Phase 1 (Section~\ref{sec:phase1-results}) found all 7 quantization variants Pareto-nondominated, so running the real Phase 2 search on all~7 is not tractable in a single-night compute budget at real (tens-of-seconds-per-evaluation) hardware cost. Three variants spanning the retained frontier were selected --- \textbf{Q4\_K\_M} (community-default ``sweet spot''), \textbf{Q2\_K} (fast/small extreme), \textbf{Q8\_0} (quality extreme) --- processed in that priority order so a partial run still yields the single most representative variant complete. As of this draft: \textbf{Q4\_K\_M is complete}; Q2\_K and Q8\_0 are \ph{in progress / pending} and will be added before submission.}
+
 \subsection{Phase 2: Runtime Configuration Search --- Convergence}
 \label{sec:phase2-convergence-results}
 
-\begin{figure}[t]
-\centering
-\todofig{best-cost-vs-iteration curves for PSO/GWO/DE on the real objective $f(\mathbf{x})$, one subplot per retained quantization variant}
-\caption{Real Phase 2 convergence (placeholder).}
-\label{fig:phase2-convergence-real}
-\end{figure}
-
-\ph{1 paragraph --- which algorithm converges fastest / to the best value, and after how many iterations.}
-
-\subsection{Robustness Across Repeated Runs}
-\label{sec:robustness}
-
-\begin{figure}[t]
-\centering
-\todofig{boxplots of best $f(\mathbf{x})$ found across N independent runs per algorithm}
-\caption{Real Phase 2 robustness (placeholder).}
-\label{fig:phase2-boxplot-real}
-\end{figure}
-
-\ph{1 paragraph --- variance across runs, outliers, and whether variance is attributable to hardware noise (Section~\ref{sec:measurement-protocol}) vs.\ optimizer stochasticity.}
-
-\subsection{Best Configurations Found}
-\label{sec:best-configs}
+\textbf{Q4\_K\_M (complete).} Figure~\ref{fig:phase2-convergence-real} plots the median (of 2 runs) best-cost-so-far against iteration for PSO, GWO, and DE on the real hardware-measured objective (Section~\ref{sec:objective}), population~4, 5~iterations --- an order of magnitude smaller than the synthetic-validation protocol (Section~\ref{sec:validation-results}), by necessity: at a measured $\approx$33\,s per real evaluation (calibrated per variant, \texttt{meta.yaml}), the population$\times$iteration floor used there ($20\times200$) would not complete overnight.
 
 \begin{table}[t]
-\caption{Best configurations by optimization algorithm (placeholder)}
-\label{tab:best-configs}
+\caption{Real Phase 2 convergence, Q4\_K\_M --- median best cost of 2 runs}
+\label{tab:phase2-convergence-q4km}
 \centering
-\begin{tabular}{@{}lcccccccccc@{}}
+\begin{tabular}{@{}lccc@{}}
 \toprule
-Algo & Quant & Thr. & Batch & Ctx & KV & $f(x)$ & Lat. & Qual. & RSS & Energy \\
+Iteration & PSO & GWO & DE \\
 \midrule
-PSO & & & & & & & & & & \\
-GWO & & & & & & & & & & \\
-DE  & & & & & & & & & & \\
+1 & 0.1047 & 0.1909 & 0.1136 \\
+2 & 0.1047 & 0.1158 & 0.1136 \\
+3 & 0.1047 & 0.1080 & 0.1136 \\
+4 & 0.0882 & 0.1080 & 0.0603 \\
+5 & 0.0882 & 0.1080 & 0.0603 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Comparison Against Baselines}
-\label{sec:baseline-comparison-real}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{real_phase2_convergence_Q4_K_M.png}
+\caption{Real Phase 2 convergence, Q4\_K\_M (complete). Q2\_K/Q8\_0 pending.}
+\label{fig:phase2-convergence-real}
+\end{figure}
+
+DE reaches the lowest median final cost (0.0603) and, in its best single run, the lowest cost of any algorithm on this variant (0.0205, run~1 --- Section~\ref{sec:robustness}). GWO converges earliest in wall-clock terms but plateaus at a visibly worse cost than PSO or DE --- the same premature-convergence pattern flagged as a hypothesis on the asymmetric synthetic functions (Section~\ref{sec:validation-results}) reproduces here on the real objective. PSO is flat for the first three iterations before a single late improvement at iteration~4; with only 5 iterations total this is a coarse curve, not a smooth one, and should be read as a budget-constrained real-hardware result rather than a well-resolved convergence trace.
+
+\subsection{Robustness Across Repeated Runs}
+\label{sec:robustness}
+
+\textbf{Q4\_K\_M (complete).} With $N_{\text{runs}}=2$ --- reduced from the synthetic-validation protocol's 10 runs because each run here costs real Pi wall-clock time, not milliseconds --- variance can only be characterized coarsely, stated as a limitation (Section~\ref{sec:limitations}) rather than glossed over.
+
+\begin{table}[t]
+\caption{Per-run best cost, Q4\_K\_M}
+\label{tab:phase2-robustness-q4km}
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Algorithm & Run 1 & Run 2 & Spread \\
+\midrule
+PSO & 0.0350 & 0.1414 & 4.0$\times$ \\
+GWO & 0.1094 & 0.1066 & 1.03$\times$ \\
+DE  & \textbf{0.0205} & 0.1000 & 4.9$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[t]
 \centering
-\todofig{best $f(\mathbf{x})$ from PSO/GWO/DE vs.\ grid search, random search, and default config, at matched evaluation budget on the real hardware objective}
-\caption{Real baseline comparison (placeholder).}
-\label{fig:baseline-comparison-real}
+\includegraphics[width=\linewidth]{real_phase2_boxplot_Q4_K_M.png}
+\caption{Real Phase 2 robustness, Q4\_K\_M (complete). Q2\_K/Q8\_0 pending.}
+\label{fig:phase2-boxplot-real}
 \end{figure}
 
-\ph{Paragraph quantifying the improvement --- this is the headline result for the abstract.}
+The pattern \emph{inverts} what Section~\ref{sec:validation-results}'s synthetic-function validation would predict: there, GWO was flagged as the most fragile/high-variance algorithm and PSO as uniformly low-variance. Here, on the real objective, GWO is by far the \emph{most} consistent (1.03$\times$ spread) while both PSO and DE swing by roughly 4--5$\times$ between their two runs. Two non-exclusive explanations are worth stating rather than picking one without evidence: (1)~with only 2 runs, ``variance'' is really just the gap between two samples, not a stable estimate --- a single unlucky PSO/DE run could flip this ranking; (2)~GWO's low variance here may be the \emph{same} premature-convergence behavior noted above rather than a virtue --- an algorithm that plateaus early and stays put will naturally show low run-to-run spread, at the cost of the worse absolute values visible in Table~\ref{tab:phase2-convergence-q4km}. Distinguishing these honestly requires more runs than the real-hardware compute budget allowed for this draft.
+
+\subsection{Best Configurations Found}
+\label{sec:best-configs}
+
+\textbf{Q4\_K\_M (complete)} --- best configuration found by each method, with the full raw measurement (not just the scalarized cost) for that configuration:
+
+\begin{table*}[t]
+\caption{Best configurations found, Q4\_K\_M}
+\label{tab:best-configs}
+\centering
+\begin{tabular}{@{}lccccccccc@{}}
+\toprule
+Method & Threads & Batch & Ctx & KV & $f(x)$ & Latency (ms/tok) & Quality ($-$PPL) & Peak RSS (MB) & Energy (J/tok) \\
+\midrule
+\textbf{DE}    & 3 & 318 & 387 & f16  & \textbf{0.0205} & 53.86 & $-$22.3879 & 1248.5 & 1.639 \\
+PSO   & 3 & 308 & 567 & q8\_0 & 0.0350 & 54.61 & $-$22.3722 & 1252.5 & 2.689 \\
+GWO   & 3 & 217 & 764 & q8\_0 & 0.1066 & 54.97 & $-$22.3722 & 1249.6 & 3.568 \\
+Random & 3 & 311 & 663 & f16  & 0.1238 & 54.65 & $-$22.3879 & 1243.7 & 2.725 \\
+Grid  & 4 & 512 & 128 & f16  & 0.3311 & 63.02 & $-$22.3879 & 1239.5 & 0.805 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+The overall winner (DE) and the second-best (PSO) agree closely on threads (3, not the maximum~4) and n\_batch ($\approx$310--320), differing mainly in n\_ctx (387 vs.\ 567) and KV-cache type (f16 vs.\ q8\_0) --- with near-identical quality between f16 and q8\_0 KV cache ($-22.3879$ vs.\ $-22.3722$, a 0.07\% difference), the objective's latency/energy terms dominate the choice, and DE's smaller n\_ctx plus f16 cache combination wins mainly on energy (1.639 vs.\ 2.689\,J/token, a 39\% reduction) at essentially the same latency. Grid search's best point is revealing in the other direction: it lands on the smallest n\_ctx (128) and \emph{lowest} energy of any method (0.805\,J/tok) but pays with the worst latency (63.02\,ms/tok, $\approx$17\% slower than DE) and the worst overall cost (0.3311, 16$\times$ worse than DE) --- a reminder that no single raw metric should be read as ``the'' answer; the scalarized objective exists precisely because latency, energy, memory, and quality trade off in ways a single-metric view would rank differently (Grid ``wins'' on energy alone, DE wins overall).
+
+\subsection{Comparison Against Baselines}
+\label{sec:baseline-comparison-real}
+
+\textbf{Q4\_K\_M (complete).} At the matched evaluation budget (population~4 $\times$ iterations~5 = 20 evaluations for PSO/GWO/DE and Random; Grid realized 16/20 due to its shared-resolution constraint, Section~\ref{sec:baseline-rehearsal}):
+
+\begin{table}[t]
+\caption{Best $f(x)$ vs.\ baselines, Q4\_K\_M}
+\label{tab:baseline-comparison-real}
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Method & Best $f(x)$ & vs.\ best metaheuristic (DE) \\
+\midrule
+DE  & 0.0205 & --- \\
+PSO & 0.0350 & 1.7$\times$ worse \\
+GWO & 0.1066 & 5.2$\times$ worse \\
+Random search & 0.1238 & 6.0$\times$ worse \\
+Grid search & 0.3311 & 16.1$\times$ worse \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On this variant, all three metaheuristics beat both naive baselines, and the best of them (DE) beats grid search by over an order of magnitude --- echoing, on the real hardware objective rather than only the synthetic functions of Section~\ref{sec:baseline-rehearsal}, the paper's central motivating claim that grid search does not scale to this kind of mixed integer/categorical space. The margin over random search is narrower than over grid (DE is 6.0$\times$ better vs.\ random, 16.1$\times$ vs.\ grid), consistent with the synthetic-function finding that random search --- despite being naive --- is a meaningfully stronger baseline than grid once dimensionality or a mixed/asymmetric range structure is involved. This single-variant result is directionally consistent with the paper's claim but is \textbf{not yet the full picture}: this comparison will only be complete once Q2\_K and Q8\_0 baseline data land, since a claim about ``the'' improvement from metaheuristic search should be reported as a range across variants, not generalized from one.
 
 \subsection{Discussion}
 
-\ph{2--3 paragraphs --- practical deployment guidance (e.g., ``for latency-critical use, prefer X''; ``for memory-constrained deployment, prefer Y''), and whether the two-phase decomposition's Pareto-retained variant set actually mattered (i.e., did the same variant always win, making Phase 1's multi-variant retention unnecessary in hindsight?).}
+\ph{Partial --- Q4\_K\_M only; complete once Q2\_K and Q8\_0 finish.}
+
+For Q4\_K\_M, the practical guidance the search data supports: \textbf{prefer DE's found configuration} (threads=3, n\_batch=318, n\_ctx=387, kv\_cache\_type=f16) for a balanced deployment, since it achieves both the lowest latency-adjacent cost and the lowest energy among the non-grid methods at statistically indistinguishable quality from the q8\_0-cache alternatives. For a strictly memory-constrained deployment, all five methods' best configurations cluster tightly in peak RSS (1239.5--1252.5\,MB, a 1\% spread) --- for this variant, memory is not the axis the search actually differentiates on; latency and energy are.
+
+Whether the two-phase decomposition's Pareto-retained multi-variant set (Section~\ref{sec:phase1-results}) actually mattered --- i.e., whether the best Phase~2 configuration and achievable cost differ meaningfully across Q2\_K/Q4\_K\_M/Q8\_0, or whether one variant would have dominated regardless of Phase~2 tuning --- cannot be answered from a single variant's data and is deferred to the completion of Q2\_K and Q8\_0. This is the single most important open question for the paper's core contribution claim (that the two-phase decomposition, not just Phase~2 alone, is what makes the search tractable and worthwhile) and will be answered directly, not implied, once all three variants are in.
 
 \section{Limitations and Threats to Validity}
 \label{sec:limitations}
