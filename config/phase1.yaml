@@ -4,16 +4,20 @@
 # actual knobs you need to point at your hardware and model source.
 
 base_model:
-  # F16 (unquantized) GGUF source. Two ways to get it:
-  #   1) A repo on the Hugging Face Hub that already hosts a converted F16 GGUF.
-  #   2) Convert yourself from the original HF transformers checkpoint using
-  #      llama.cpp's convert_hf_to_gguf.py, then point local_path at the output.
-  # VERIFY: exact repo id / filename before running — GGUF re-uploads change names often.
-  hf_repo: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"     # VERIFY: may not host GGUF directly
-  hf_filename: null                                  # VERIFY: set if hf_repo hosts a .gguf file directly
-  # If hf_filename is null, the script expects local_path to already exist
-  # (produced by convert_hf_to_gguf.py) and will not attempt a download.
-  local_path: "models/tinyllama-1.1b-chat-v1.0-f16.gguf"
+  # DEVIATION FROM THE ORIGINAL PLAN, recorded here rather than silently
+  # changed: no pre-converted F16 GGUF for TinyLlama-1.1B-Chat-v1.0 was
+  # found on the HF Hub (checked TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF,
+  # 2026-08-15 — finest available there is Q8_0). Converting from the
+  # original transformers checkpoint via convert_hf_to_gguf.py would need
+  # torch+transformers installed (heavy on ARM64, adds disk/bandwidth cost
+  # under a tight SD-card budget) just to reproduce what Q8_0 already gives
+  # us almost losslessly. So Q8_0 is used as the requantization SOURCE
+  # instead of true F16 — a widely-accepted near-lossless proxy for this
+  # purpose, but an explicit methodological choice, not an oversight.
+  # Article Section 3.4/5.1 must state this plainly, not present it as F16.
+  hf_repo: "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+  hf_filename: "tinyllama-1.1b-chat-v1.0.Q8_0.gguf"
+  local_path: "models/tinyllama-1.1b-chat-v1.0-q8_0-base.gguf"
 
 # Quantization variants to sweep. Names must match llama-quantize's accepted
 # type strings exactly (run `llama-quantize --help` on your build to confirm
@@ -28,9 +32,9 @@ quant_variants:
   - Q8_0
 
 llama_cpp:
-  # VERIFY: path to your llama.cpp build's bin/ directory on the target device
-  # (e.g. on the Raspberry Pi 5, after `cmake --build build`).
-  bin_dir: "/home/pi/llama.cpp/build/bin"
+  # Path to the llama.cpp build's bin/ directory on this Raspberry Pi 5
+  # (fkoraiche@192.168.100.63), confirmed 2026-08-15.
+  bin_dir: "/home/fkoraiche/llama.cpp/build/bin"
   quantize_bin: "llama-quantize"
   bench_bin: "llama-bench"
   perplexity_bin: "llama-perplexity"
@@ -42,11 +46,12 @@ bench:
   repetitions: 3       # llama-bench -r; median is more robust to thermal/OS jitter
 
 perplexity:
-  # VERIFY: point this at a real held-out corpus (e.g. wikitext-2-raw's
-  # wiki.test.raw) before drawing any conclusions. The bundled sample file is
-  # only a smoke-test fixture — too small and too repetitive to be a valid
-  # perplexity benchmark, and using it for real Section 5.1 numbers would be wrong.
-  corpus_path: "data/prompts/perplexity_smoke_sample.txt"
+  # Real wikitext-2-raw-v1 test split, downloaded from Salesforce/wikitext
+  # on HF (converted from parquet to plain text), 2026-08-15: 1,285,622
+  # chars. Confirmed via a real llama-perplexity run that ctx_size=512
+  # requires >=1024 tokens minimum — this corpus clears that by a wide
+  # margin (the bundled smoke sample, at 240 tokens, does not).
+  corpus_path: "data/prompts/wikitext2_raw_test.txt"
   ctx_size: 512
 
 output:

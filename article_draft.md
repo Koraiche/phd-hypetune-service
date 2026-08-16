@@ -72,10 +72,11 @@ This decomposition exists because quantization variants are not continuously int
 
 ### 3.2 Target platform and model
 
-- **Hardware:** Raspberry Pi 5 (`[PLACEHOLDER: exact RAM — 4GB or 8GB], Broadcom BCM2712, active cooling: yes/no]`)
-- **OS / software stack:** `[PLACEHOLDER: Raspberry Pi OS version, kernel, llama.cpp commit/version, build flags (NEON, threads backend)]`
-- **Model:** TinyLlama-1.1B [1] (`[PLACEHOLDER: exact checkpoint / chat vs base variant]`), converted to GGUF.
-- **CPU governor:** fixed to `performance` for all runs to reduce DVFS-induced measurement noise `[CONFIRM in code]`.
+- **Hardware:** Raspberry Pi 5 Model B Rev 1.1, 8GB RAM, Broadcom BCM2712 (4x Cortex-A76), active cooling (PWM fan, `cooling_device0: pwm-fan`). Confirmed via SSH 2026-08-15.
+- **OS / software stack:** Debian GNU/Linux 13 (trixie), kernel `6.12.47+rpt-rpi-2712`. llama.cpp commit `adb55e5148dc93bcdca7212a2d1df3ccc422959a` (built from source via cmake, Release config, `-DLLAMA_CURL=OFF`; OpenSSL not found at build time so HTTPS support in the bundled server is disabled — irrelevant to Phase 1, which only uses the CLI tools). GCC 14.2.0. CMake auto-detected CPU features: `dotprod`, `fp16_vector_arithmetic`, `fma`; no SVE/SME/MATMUL_INT8 on this SoC.
+- **Model:** TinyLlama-1.1B-Chat-v1.0 [1], GGUF. **Deviation from the original plan, recorded rather than silently changed:** no pre-converted F16 GGUF was found on the HF Hub (checked `TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF`; finest available there is Q8_0). Converting from the original transformers checkpoint via `convert_hf_to_gguf.py` would need torch+transformers installed on the Pi (heavy on ARM64, meaningful disk/bandwidth cost under this device's tight SD-card budget) just to reproduce what Q8_0 already gives near-losslessly. **Q8_0 is used as the requantization source for all Phase 1 variants instead of true F16** — llama-quantize requires `--allow-requantize` to requantize an already-quantized source, confirmed against the real build's `--help` output and applied in `llama_cpp_runner.py`. This is a defensible, widely-used proxy but is a real methodological choice, not F16, and every mention of "base model" in Section 5.1 refers to this Q8_0 source.
+- **CPU governor:** confirmed set to `performance` on all 4 cores (was `ondemand` by default; changed 2026-08-15) to reduce DVFS-induced measurement noise. Available governors on this kernel: `conservative ondemand userspace powersave performance schedutil`.
+- **Disk:** 29.5GB SD card (`mmcblk0p2`); freed from 90%/2.8GB-free to 38%/18GB-free by clearing a regenerable model-cache directory from an unrelated prior project, logged in the project's own history rather than the article, since it's infrastructure housekeeping, not part of the method.
 - **Expected magnitude (sanity check, not a target):** informal community benchmarks (Section 2.2) put TinyLlama-1.1B generation throughput on a Pi 5 via llama.cpp roughly in the 5-14 tokens/second range depending on quantization and thread configuration. Phase 1 results (Section 5.1) wildly outside this range — in either direction — should be treated as a likely measurement or configuration bug before being reported as a finding.
 
 ### 3.3 Benchmark construction
@@ -89,7 +90,7 @@ Following [11]'s emphasis on data quality preceding optimization, we construct a
 
 ### 3.4 Phase 1: Quantization variant selection
 
-Candidate quantization variants (GGUF): `[PLACEHOLDER: e.g., Q2_K, Q3_K_M, Q4_0, Q4_K_M, Q5_K_M, Q6_K, Q8_0, F16]`.
+Candidate quantization variants (GGUF), confirmed as valid `llama-quantize` type strings against the real build: Q2_K, Q3_K_M, Q4_0, Q4_K_M, Q5_K_M, Q6_K, Q8_0. (No F16 entry — see Section 3.2's note on using Q8_0 as the requantization source rather than true F16; Q8_0 as a "variant" in this sweep is therefore a same-precision copy of the base, included as a consistency check.)
 
 For each variant, evaluate once on the benchmark subset:
 - Perplexity / task score
@@ -173,7 +174,7 @@ Implementation notes (all in `src/phase2_search/`): PSO uses global-best form wi
 
 Unlike [11]'s objective function (a deterministic or lightly-stochastic cross-validation error), our fitness function is measured on physical hardware and is subject to:
 
-- **Thermal throttling:** consecutive high-load evaluations can raise SoC temperature and trigger frequency scaling. Mitigation: `[PLACEHOLDER: fixed cooldown interval between evaluations; monitor via vcgencmd measure_temp; discard/re-run evaluations above a temperature threshold]`.
+- **Thermal throttling:** consecutive high-load evaluations can raise SoC temperature and trigger frequency scaling. Mitigation: `[PLACEHOLDER: fixed cooldown interval between evaluations; monitor via vcgencmd measure_temp; discard/re-run evaluations above a temperature threshold]`. **Observed, not just anticipated:** during the Phase 1 sweep (2026-08-15), `vcgencmd get_throttled` reported `0xe0000` (frequency-capping, throttling, and soft-temperature-limit "has occurred" bits all set) after roughly 80 minutes of sustained perplexity computation, with SoC temperature peaking around 83°C. No cooldown/thermal-guard mitigation was implemented yet at the time of this run — the sweep was allowed to proceed regardless, on the reasoning that a first full data point was more valuable than delaying for tooling that doesn't exist yet, but this means later-evaluated quantization variants in that run may carry more thermal-throttling-induced measurement noise than earlier ones, a confound that must be reported alongside Section 5.1's results rather than papered over. Building the actual `thermal_guard.py` mitigation (still not implemented) becomes a stronger priority for Phase 2, where dozens to hundreds of back-to-back evaluations make compounding heat far more likely than Phase 1's 7 one-shot variant evaluations.
 - **OS/background jitter:** `[PLACEHOLDER: run with minimal background services; pin process priority; repeat each evaluation k times and use median]`.
 - **Energy measurement:** `[PLACEHOLDER: USB-C inline power meter / INA219 sensor on GPIO; measure average watts over the generation window, multiply by wall-clock time and divide by tokens generated to get joules/token]`.
 
