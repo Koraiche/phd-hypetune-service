@@ -223,18 +223,23 @@ Including these baselines directly tests the claim — inherited from [11]'s fra
 
 ### 5.1 Phase 1: quantization variant impact
 
-`[PLACEHOLDER TABLE — analogous to [11] Tables 1-2]`
+**Status: real results below** (`python src/phase1_quant_sweep.py`, run on the Raspberry Pi 5 target 2026-08-15/16, threads=4, wikitext-2-raw-v1 full test corpus at ctx=512, `llama-bench` repetitions=3). Full data: `results/phase1_table.csv`. Note the table below reports generation and prompt tokens/second rather than a separate "load time" column — model load time was not instrumented in this run (`llama_cpp_runner.py` doesn't currently isolate it from the bench subprocess's total wall time), a gap worth closing in a follow-up pass rather than fabricating a number here.
 
-| Quant variant | Perplexity | Peak RSS (MB) | Load time (s) | Tokens/s (default runtime) | File size (MB) |
+| Quant variant | Perplexity | Peak RSS (MB) | Gen tok/s | Prompt tok/s | File size (MB) |
 |---|---|---|---|---|---|
-| Q2_K | | | | | |
-| Q3_K_M | | | | | |
-| Q4_0 | | | | | |
-| Q4_K_M | | | | | |
-| Q5_K_M | | | | | |
-| Q8_0 | | | | | |
+| Q2_K | 28.8148 | 495.4 | 25.62 | 34.15 | 413.0 |
+| Q3_K_M | 21.6011 | 793.4 | 19.18 | 34.47 | 523.9 |
+| Q4_0 | 20.6162 | 1197.7 | 18.06 | 116.85 | 608.2 |
+| Q4_K_M | 20.4490 | 1257.2 | 17.02 | 70.59 | 637.8 |
+| Q5_K_M | 20.1640 | 1465.9 | 14.38 | 60.73 | 746.7 |
+| Q6_K | 20.0001 | 1687.6 | 12.26 | 61.31 | 862.5 |
+| Q8_0 | 19.9734 | 2180.6 | 8.47 | 54.97 | 1116.5 |
 
-`[PLACEHOLDER: 1-paragraph discussion — which variants are Pareto-dominated and dropped, which are carried into Phase 2, and why.]`
+(Base model for this sweep is Q8_0, not F16 — see Section 3.2's documented deviation. Q8_0's own row is therefore a same-precision requantization of itself, included as a consistency check rather than a genuine compression point; its file size/RSS/speed being the largest/slowest of the sweep is exactly what should happen if the pipeline is working correctly, since it's the least-compressed variant tested.)
+
+**Pareto outcome — all 7 variants retained, and that is itself the finding.** Running the Pareto filter (`src/common/pareto.py`) over (quality, tokens/s, peak RSS) returned all 7 variants as non-dominated: `results/phase1_retained.yaml` lists `[Q2_K, Q3_K_M, Q4_0, Q4_K_M, Q5_K_M, Q6_K, Q8_0]` in full. This is not a bug or a trivial outcome — it happens because quality, speed, and memory trade off *perfectly monotonically* with quantization level in this data: every step from Q2_K toward Q8_0 strictly improves perplexity (28.81 → 19.97) while strictly increasing memory (495MB → 2181MB) and strictly decreasing generation throughput (25.6 → 8.5 tok/s), with zero exceptions across all 7 points. A variant would only be Pareto-dominated if some other variant beat it on every axis simultaneously — impossible here since improving on any one axis (by moving toward higher precision) always costs on the other two. Two things are worth noting about the *shape* of the trade-off rather than just its monotonicity: (1) the marginal quality return shrinks sharply past Q4_K_M — Q4_0→Q4_K_M→Q5_K_M→Q6_K→Q8_0 only improves perplexity from 20.62 to 19.97 (a 3.2% relative gain) while RSS nearly doubles (1198MB→2181MB) and speed drops by more than half (18.1→8.5 tok/s), a classically poor trade past that point for most deployment goals; (2) Q4_0 and Q4_K_M are close in quality (20.62 vs 20.45) and size (608MB vs 638MB) but Q4_K_M is measurably slower (18.06 vs 17.02 tok/s) and has ~5% higher peak RSS for a modest quality edge — exactly the kind of nuance a scalar "pick the best" rule would hide and a multi-objective framing is supposed to surface.
+
+Given the full retained set is impractically large to run the real hardware-in-the-loop Phase 2 search across all 7 (each Phase 2 evaluation costs real seconds, not the milliseconds of Section 5.2's synthetic validation — see Section 3.7's cost argument, now empirically confirmed rather than just estimated), Phase 2 in this draft runs on a deliberately chosen 3-variant subset spanning the frontier — Q2_K (fast/small extreme), Q4_K_M (the community-standard "K-quant sweet spot," and the point where marginal quality returns visibly start shrinking per the analysis above), and Q8_0 (quality extreme) — documented explicitly in `src/phase2_search/run_real_phase2.py` as `PHASE2_VARIANT_SUBSET`, not silently narrowed from the full retained list. See Section 5.3 onward.
 
 ### 5.2 Metaheuristic validation on synthetic functions
 

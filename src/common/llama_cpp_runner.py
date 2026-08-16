@@ -202,7 +202,7 @@ def run_bench_instrumented(
     bench_bin: str, model_gguf: Path, threads: int, n_prompt: int, n_gen: int,
     repetitions: int = 1, batch_size: Optional[int] = None,
     cache_type_k: Optional[str] = None, cache_type_v: Optional[str] = None,
-    rss_interval_s: float = 0.05, power_interval_s: float = 0.2,
+    rss_interval_s: float = 0.05, power_interval_s: float = 1.0,
     vcgencmd_bin: str = "vcgencmd", timeout_s: Optional[float] = None,
 ) -> InstrumentedBenchResult:
     """One llama-bench invocation, instrumented with concurrent peak-RSS and
