@@ -160,11 +160,11 @@ This decomposition exists because quantization variants are not continuously int
 
 Following~\cite{ref11}'s emphasis on data quality preceding optimization, we construct a fixed prompt benchmark before any tuning begins:
 
+\textbf{Deviation from the original plan, recorded rather than silently changed:} a discrete, task-labeled prompt set (e.g.\ separate short-QA/summarization/instruction-following prompts with per-prompt timing-stability filtering) was the original design but was not what was actually built. The real benchmark instead uses two standard, fixed corpora, confirmed against \texttt{config/phase1.yaml} and \texttt{run\_real\_phase2.py}:
 \begin{itemize}
-  \item \ph{N prompts, e.g., 100--300} prompts spanning \ph{task categories, e.g., short QA, summarization, instruction following}.
-  \item Fixed generation length (\ph{max\_new\_tokens}) and fixed random seed per prompt for reproducibility across configurations.
-  \item Prompts with unstable timing (\ph{e.g., coefficient of variation > threshold across 3 warm-up runs}) are removed, mirroring~\cite{ref11}'s pre-processing filtering step.
-  \item A held-out subset (\ph{e.g., 20\%}) is reserved for final validation of the selected best configuration, distinct from the subset used during search.
+  \item \textbf{Latency/throughput:} \texttt{llama-bench} synthetic prompt/generation token counts---512 prompt tokens (\texttt{-p}) $\times$ 128 generation tokens (\texttt{-n}) for Phase~1 (Table~\ref{tab:hw-summary}'s config), 3 repetitions, median-robust to thermal/OS jitter; Phase~2 varies \texttt{-p} directly as the searched \texttt{n\_ctx} parameter (Section~\ref{sec:phase2-space}) rather than using a fixed value.
+  \item \textbf{Quality:} \texttt{llama-perplexity} over the WikiText-2 raw test split (\texttt{data/prompts/wikitext2\_raw\_test.txt} for Phase~1; a smaller \texttt{wikitext2\_quality\_slice.txt} for Phase~2's per-KV-cache-type quality precomputation, Section~\ref{sec:objective}), not a task-accuracy score---perplexity was chosen because it requires no labeled downstream task and works directly off a standard corpus already in the llama.cpp ecosystem.
+  \item No coefficient-of-variation-based prompt filtering or held-out validation subset was implemented---\texttt{llama-bench}'s built-in repetition/median already serves the same timing-stability role that per-prompt filtering was meant to provide, and a fixed standard corpus does not need a held-out split in the way a curated task-prompt set would.
 \end{itemize}
 
 \subsection{Phase 1: Quantization Variant Selection}
