@@ -789,11 +789,11 @@ Author & C & M & So & Va & Fo & I & R & \ldots \\
 
 \begin{thebibliography}{99}
 
-\bibitem{ref1} P. Zhang, G. Zeng, T. Wang, and W. Lu, ``TinyLlama: An Open-Source Small Language Model,'' \emph{arXiv:2401.02385}, 2024. \verifynote{final venue/version}
+\bibitem{ref1} P. Zhang, G. Zeng, T. Wang, and W. Lu, ``TinyLlama: An Open-Source Small Language Model,'' \emph{arXiv:2401.02385}, 2024. (Confirmed 2026-08-17 via web search: arXiv preprint only, no separate peer-reviewed proceedings/journal venue located.)
 
-\bibitem{ref2} \ph{GGUF format reference / llama.cpp documentation citation.}
+\bibitem{ref2} ggml-org, ``GGUF File Format Specification,'' \emph{ggml} [GitHub repository], \url{https://github.com/ggml-org/ggml/blob/master/docs/gguf.md}, accessed 2026-08-17.
 
-\bibitem{ref3} G. Gerganov et al., \emph{llama.cpp} [Software]. GitHub. \verifynote{cite specific commit/release used in experiments}
+\bibitem{ref3} G. Gerganov et al., \emph{llama.cpp} [Software]. GitHub repository \url{https://github.com/ggml-org/llama.cpp} (formerly \texttt{ggerganov/llama.cpp}). Commit \texttt{adb55e5148dc93bcdca7212a2d1df3ccc422959a} used for all experiments in this paper (Section~\ref{sec:setup}).
 
 \bibitem{ref4} E. Frantar, S. Ashkboos, T. Hoefler, and D. Alistarh, ``GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers,'' \emph{arXiv:2210.17323}, 2022.
 
@@ -811,19 +811,19 @@ Author & C & M & So & Va & Fo & I & R & \ldots \\
 
 \bibitem{ref11} Z. Nouna, H. Bouyghf, M. Nahid, and I. Sabiri, ``Heart disease prediction optimization using metaheuristic algorithms,'' \emph{IAES International Journal of Artificial Intelligence}, vol. 14, no. 5, pp. 4332--4341, 2025.
 
-\bibitem{ref12} K. Wang, Z. Liu, Y. Lin, J. Lin, and S. Han, ``HAQ: Hardware-Aware Automated Quantization with Mixed Precision,'' in \emph{Proc. CVPR}, 2019. \emph{arXiv:1811.08886}. \verifynote{page numbers/proceedings citation}
+\bibitem{ref12} K. Wang, Z. Liu, Y. Lin, J. Lin, and S. Han, ``HAQ: Hardware-Aware Automated Quantization with Mixed Precision,'' in \emph{Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition (CVPR)}, 2019, pp.~8604--8612. \emph{arXiv:1811.08886}. (Authors confirmed 2026-08-17 via DBLP; exact page range has a source discrepancy---8604--8612 vs.\ 8612--8620 across secondary sources---\verifynote{confirm exact pages directly against IEEE Xplore before submission}.)
 
-\bibitem{ref13} \ph{Genetic-algorithm-based mixed-precision quantization search paper located in the literature check --- exact title/venue not yet pinned down; found via a search result describing GA search vs.\ brute-force enumeration over per-layer bitwidths.}
+\bibitem{ref13} R. Miccini, A. Cerioli, C. Laroche, T. Piechowiak, J. Sparsø, and L. Pezzarossa, ``Towards a Tailored Mixed-Precision Sub-8-bit Quantization Scheme for Gated Recurrent Units Using Genetic Algorithms,'' \emph{arXiv:2402.12263}, 2024. Accepted at the tinyML Research Symposium 2024. \verifynote{leading candidate located 2026-08-17 for the GA-based mixed-precision search work described here (per-operator bitwidth search via genetic algorithm); the specific brute-force-enumeration comparison originally used to identify this line of work was not independently re-confirmed in this pass---verify against the full paper before submission, or replace if it does not match.}
 
-\bibitem{ref14} \verifynote{exact authors/venue}. ``EMQ: Evolving Training-free Proxies for Automated Mixed Precision Quantization,'' \emph{arXiv:2307.10554}.
+\bibitem{ref14} P. Dong, L. Li, Z. Wei, X.-Y. Niu, Z. Tian, and H. Pan, ``EMQ: Evolving Training-free Proxies for Automated Mixed Precision Quantization,'' in \emph{Proc. IEEE/CVF Int. Conf. Computer Vision (ICCV)}, 2023. \emph{arXiv:2307.10554}. (Authors and venue confirmed 2026-08-17 via arXiv listing.)
 
-\bibitem{ref15} \verifynote{exact authors/venue}. ``Automatic Quantization of Convolutional Neural Networks Based on Enhanced Bare-Bones Particle Swarm Optimization for Chest X-Ray Image Classification,'' in \emph{Computational Collective Intelligence}, Springer. \verifynote{DOI: 10.1007/978-3-031-41456-5\_10}
+\bibitem{ref15} J. Tmamna, E. Ben Ayed, and M. Ben Ayed, ``Automatic Quantization of Convolutional Neural Networks Based on Enhanced Bare-Bones Particle Swarm Optimization for Chest X-Ray Image Classification,'' in \emph{Computational Collective Intelligence (ICCCI 2023)}, Springer, 2023, pp.~125--137. DOI: 10.1007/978-3-031-41456-5\_10. (Authors and pages confirmed 2026-08-17 via web search.)
 
-\bibitem{ref16} A. Hameed, B. Qolomany, et al., ``Large Language Model Enhanced Particle Swarm Optimization for Hyperparameter Tuning for Deep Learning Models,'' \emph{arXiv:2504.14126}, 2025. \verifynote{full author list/IEEE citation}
+\bibitem{ref16} S. Hameed, B. Qolomany, S. B. Belhaouari, M. Abdallah, J. Qadir, and A. Al-Fuqaha, ``Large Language Model Enhanced Particle Swarm Optimization for Hyperparameter Tuning for Deep Learning Models,'' \emph{arXiv:2504.14126}, 2025. (Full author list confirmed 2026-08-17 via arXiv; corrects an earlier draft's ``A. Hameed'' to the correct ``S. Hameed.'')
 
 \end{thebibliography}
 
-\status{This reference list still needs a proper database-backed pass (Google Scholar / Semantic Scholar with citation-graph checking) --- entries above were located via web search at abstract level on 2026-08-01 and are not yet verified against the full source PDFs. In particular \cite{ref13} is not yet pinned to a specific paper and must be resolved or removed before submission.}
+\status{Most entries above were verified via a targeted web-search pass on 2026-08-17 (author lists, venues, and---where locatable---page numbers), improving on the original 2026-08-01 abstract-level pass. Two items still need a final check before submission: \cite{ref12}'s exact page range (source disagreement, flagged above) and \cite{ref13} (a strong candidate located, but the specific brute-force-comparison detail that originally identified this line of work was not re-confirmed against the full paper). This is still not a full database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal)---see Section~\ref{sec:limitations}.}
 
 \appendices
 

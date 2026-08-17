@@ -450,11 +450,11 @@ Comparing the two completed variants directly speaks to the paper's core questio
 
 *(Real, verifiable sources are numbered and used as-is. Entries marked `[VERIFY]` must be checked against the actual bibliographic record — exact venue, year, page numbers — before submission. Do not submit this reference list unverified.)*
 
-[1] Zhang, P., Zeng, G., Wang, T., & Lu, W. (2024). TinyLlama: An Open-Source Small Language Model. *arXiv:2401.02385*. `[VERIFY final venue/version]`
+[1] Zhang, P., Zeng, G., Wang, T., & Lu, W. (2024). TinyLlama: An Open-Source Small Language Model. *arXiv:2401.02385*. (Confirmed 2026-08-17 via web search: arXiv preprint only, no separate peer-reviewed proceedings/journal venue located.)
 
-[2] `[PLACEHOLDER: GGUF format reference / llama.cpp documentation citation]`
+[2] ggml-org. GGUF File Format Specification. *ggml* [GitHub repository]. https://github.com/ggml-org/ggml/blob/master/docs/gguf.md, accessed 2026-08-17.
 
-[3] Gerganov, G. et al. *llama.cpp* [Software]. GitHub. `[VERIFY: cite specific commit/release used in experiments]`
+[3] Gerganov, G. et al. *llama.cpp* [Software]. GitHub repository https://github.com/ggml-org/llama.cpp (formerly `ggerganov/llama.cpp`). Commit `adb55e5148dc93bcdca7212a2d1df3ccc422959a` used for all experiments in this paper (Section 4.1).
 
 [4] Frantar, E., Ashkboos, S., Hoefler, T., & Alistarh, D. (2022). GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers. *arXiv:2210.17323*.
 
@@ -472,17 +472,17 @@ Comparing the two completed variants directly speaks to the paper's core questio
 
 [11] Nouna, Z., Bouyghf, H., Nahid, M., & Sabiri, I. (2025). Heart disease prediction optimization using metaheuristic algorithms. *IAES International Journal of Artificial Intelligence*, 14(5), 4332–4341.
 
-[12] Wang, K., Liu, Z., Lin, Y., Lin, J., & Han, S. (2019). HAQ: Hardware-Aware Automated Quantization with Mixed Precision. *CVPR 2019*. `arXiv:1811.08886`. `[VERIFY page numbers/proceedings citation]`
+[12] Wang, K., Liu, Z., Lin, Y., Lin, J., & Han, S. (2019). HAQ: Hardware-Aware Automated Quantization with Mixed Precision. *Proc. IEEE/CVF CVPR*, pp. 8604–8612. `arXiv:1811.08886`. (Authors confirmed 2026-08-17 via DBLP; exact page range has a source discrepancy — 8604–8612 vs. 8612–8620 across secondary sources — `[VERIFY exact pages directly against IEEE Xplore before submission]`.)
 
-[13] `[VERIFY: genetic-algorithm-based mixed-precision quantization search paper located in the literature check — need to pin down the exact title/venue; found via a search result describing GA search vs. brute-force enumeration over per-layer bitwidths, not yet traced to a specific citable paper.]`
+[13] Miccini, R., Cerioli, A., Laroche, C., Piechowiak, T., Sparsø, J., & Pezzarossa, L. (2024). Towards a Tailored Mixed-Precision Sub-8-bit Quantization Scheme for Gated Recurrent Units Using Genetic Algorithms. `arXiv:2402.12263`. Accepted at the tinyML Research Symposium 2024. `[VERIFY: leading candidate located 2026-08-17 for the GA-based mixed-precision search work described here (per-operator bitwidth search via genetic algorithm); the specific brute-force-enumeration comparison originally used to identify this line of work was not independently re-confirmed in this pass — verify against the full paper before submission, or replace if it does not match.]`
 
-[14] `[VERIFY exact authors/venue]`. EMQ: Evolving Training-free Proxies for Automated Mixed Precision Quantization. `arXiv:2307.10554`.
+[14] Dong, P., Li, L., Wei, Z., Niu, X.-Y., Tian, Z., & Pan, H. (2023). EMQ: Evolving Training-free Proxies for Automated Mixed Precision Quantization. *Proc. IEEE/CVF ICCV*. `arXiv:2307.10554`. (Authors and venue confirmed 2026-08-17 via arXiv listing.)
 
-[15] `[VERIFY exact authors/venue]`. Automatic Quantization of Convolutional Neural Networks Based on Enhanced Bare-Bones Particle Swarm Optimization for Chest X-Ray Image Classification. *Computational Collective Intelligence* (Springer). `[VERIFY DOI: 10.1007/978-3-031-41456-5_10]`
+[15] Tmamna, J., Ben Ayed, E., & Ben Ayed, M. (2023). Automatic Quantization of Convolutional Neural Networks Based on Enhanced Bare-Bones Particle Swarm Optimization for Chest X-Ray Image Classification. *Computational Collective Intelligence (ICCCI 2023)*, Springer, pp. 125–137. DOI: 10.1007/978-3-031-41456-5_10. (Authors and pages confirmed 2026-08-17 via web search.)
 
-[16] Hameed, A., Qolomany, B., et al. (2025). Large Language Model Enhanced Particle Swarm Optimization for Hyperparameter Tuning for Deep Learning Models. `arXiv:2504.14126`. `[VERIFY full author list/IEEE citation]`
+[16] Hameed, S., Qolomany, B., Belhaouari, S. B., Abdallah, M., Qadir, J., & Al-Fuqaha, A. (2025). Large Language Model Enhanced Particle Swarm Optimization for Hyperparameter Tuning for Deep Learning Models. `arXiv:2504.14126`. (Full author list confirmed 2026-08-17 via arXiv; corrects an earlier draft's "A. Hameed" to the correct "S. Hameed".)
 
-`[PLACEHOLDER: this reference list still needs a proper database-backed pass (Google Scholar / Semantic Scholar with citation-graph checking) — the above were located via web search at abstract level on 2026-08-01 and are not yet verified against the full source PDFs. In particular [13] is not yet pinned to a specific paper and must be resolved or removed before submission. Also still needed: a peer-reviewed (not community-blog) source for Raspberry Pi 5 / TinyLlama throughput numbers if one exists, to replace the informal benchmark range cited in Section 2.2.]`
+`[PLACEHOLDER: most entries above were verified via a targeted web-search pass on 2026-08-17 (author lists, venues, and — where locatable — page numbers), improving on the original 2026-08-01 abstract-level pass. Two items still need a final check before submission: [12]'s exact page range (source disagreement, flagged above) and [13] (a strong candidate located, but the specific brute-force-comparison detail that originally identified this line of work was not re-confirmed against the full paper). This is still not a full database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal) — see Section 6. Also still needed: a peer-reviewed (not community-blog) source for Raspberry Pi 5 / TinyLlama throughput numbers if one exists, to replace the informal benchmark range cited in Section 2.2.]`
 
 ---
 
