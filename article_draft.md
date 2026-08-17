@@ -101,7 +101,7 @@ For each variant, evaluate once on the benchmark subset:
 
 This produces a table directly analogous to [11]'s Table 1 (pre-processing impact) and Table 2 (feature-selection impact) — see Section 5.1, Table `[PLACEHOLDER]`.
 
-Selection rule: retain the `[PLACEHOLDER: top-k, e.g., top 2-3]` variants that are not dominated on the quality/memory/speed trade-off (Pareto-nondominated) for Phase 2. This avoids arbitrarily committing to a single "best" quantization before runtime tuning is known, while still keeping Phase 2's per-configuration model-loading cost low.
+Selection rule: retain all variants that are not dominated on the quality/memory/speed trade-off (Pareto-nondominated) for Phase 2 — no fixed top-k cap. This avoids arbitrarily committing to a single "best" quantization before runtime tuning is known. In practice (Section 5.1), all 7 candidate variants turned out Pareto-nondominated, so the rule as stated retained the full set; a bounded compute budget then forced a separate, explicitly documented priority-order subset for the real Phase 2 search itself (Section 5.3).
 
 ### 3.5 Phase 2: Runtime hyperparameter search space
 

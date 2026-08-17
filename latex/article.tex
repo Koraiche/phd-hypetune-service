@@ -148,10 +148,11 @@ This decomposition exists because quantization variants are not continuously int
 \subsection{Target Platform and Model}
 
 \begin{itemize}
-  \item \textbf{Hardware:} Raspberry Pi 5 (\ph{exact RAM --- 4GB or 8GB, Broadcom BCM2712, active cooling: yes/no})
-  \item \textbf{OS / software stack:} \ph{Raspberry Pi OS version, kernel, llama.cpp commit/version, build flags (NEON, threads backend)}
-  \item \textbf{Model:} TinyLlama-1.1B~\cite{ref1} (\ph{exact checkpoint / chat vs.\ base variant}), converted to GGUF.
-  \item \textbf{CPU governor:} fixed to \texttt{performance} for all runs to reduce DVFS-induced measurement noise \verifynote{confirm in code}.
+  \item \textbf{Hardware:} Raspberry Pi 5 Model B Rev 1.1, 8\,GB RAM, Broadcom BCM2712 (4$\times$ Cortex-A76), active cooling (PWM fan, \texttt{cooling\_device0: pwm-fan}). Confirmed via SSH 2026-08-15.
+  \item \textbf{OS / software stack:} Debian GNU/Linux 13 (trixie), kernel \texttt{6.12.47+rpt-rpi-2712}. llama.cpp commit \texttt{adb55e5148dc93bcdca7212a2d1df3ccc422959a} (built from source via cmake, Release config, \texttt{-DLLAMA\_CURL=OFF}; OpenSSL not found at build time so HTTPS support in the bundled server is disabled---irrelevant to Phase~1, which only uses the CLI tools). GCC~14.2.0. CMake auto-detected CPU features: \texttt{dotprod}, \texttt{fp16\_vector\_arithmetic}, \texttt{fma}; no SVE/SME/MATMUL\_INT8 on this SoC.
+  \item \textbf{Model:} TinyLlama-1.1B-Chat-v1.0~\cite{ref1}, GGUF. \textbf{Deviation from the original plan, recorded rather than silently changed:} no pre-converted F16 GGUF was found on the HF Hub (checked \texttt{TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF}; finest available there is Q8\_0). Converting from the original transformers checkpoint via \texttt{convert\_hf\_to\_gguf.py} would need torch+transformers installed on the Pi (heavy on ARM64, meaningful disk/bandwidth cost under this device's tight SD-card budget) just to reproduce what Q8\_0 already gives near-losslessly. \textbf{Q8\_0 is used as the requantization source for all Phase~1 variants instead of true F16}---\texttt{llama-quantize} requires \texttt{--allow-requantize} to requantize an already-quantized source, confirmed against the real build's \texttt{--help} output. This is a defensible, widely-used proxy but is a real methodological choice, not F16; every mention of ``base model'' in Section~\ref{sec:results} refers to this Q8\_0 source.
+  \item \textbf{CPU governor:} confirmed set to \texttt{performance} on all 4 cores (was \texttt{ondemand} by default; changed 2026-08-15) to reduce DVFS-induced measurement noise. Available governors on this kernel: \texttt{conservative ondemand userspace powersave performance schedutil}.
+  \item \textbf{Disk:} 29.5\,GB SD card (\texttt{mmcblk0p2}); freed from 90\%/2.8\,GB-free to 38\%/18\,GB-free by clearing a regenerable model-cache directory from an unrelated prior project---infrastructure housekeeping, not part of the method.
   \item \textbf{Expected magnitude (sanity check, not a target):} informal community benchmarks (Section~\ref{sec:related}B) put TinyLlama-1.1B generation throughput on a Pi~5 via llama.cpp roughly in the 5--14 tokens/second range depending on quantization and thread configuration. Phase~1 results (Section~\ref{sec:results}) wildly outside this range---in either direction---should be treated as a likely measurement or configuration bug before being reported as a finding.
 \end{itemize}
 
@@ -169,7 +170,7 @@ Following~\cite{ref11}'s emphasis on data quality preceding optimization, we con
 \subsection{Phase 1: Quantization Variant Selection}
 \label{sec:phase1}
 
-Candidate quantization variants (GGUF): \ph{e.g., Q2\_K, Q3\_K\_M, Q4\_0, Q4\_K\_M, Q5\_K\_M, Q6\_K, Q8\_0, F16}.
+Candidate quantization variants (GGUF), confirmed as valid \texttt{llama-quantize} type strings against the real build: Q2\_K, Q3\_K\_M, Q4\_0, Q4\_K\_M, Q5\_K\_M, Q6\_K, Q8\_0. (No F16 entry---see the note above on using Q8\_0 as the requantization source rather than true F16; Q8\_0 as a ``variant'' in this sweep is therefore a same-precision copy of the base, included as a consistency check.)
 
 For each variant, evaluate once on the benchmark subset:
 \begin{itemize}
@@ -182,7 +183,7 @@ For each variant, evaluate once on the benchmark subset:
 
 This produces a table directly analogous to~\cite{ref11}'s Table~1 (pre-processing impact) and Table~2 (feature-selection impact)---see Table~\ref{tab:phase1-impact} in Section~\ref{sec:results}.
 
-Selection rule: retain the \ph{top-k, e.g., top 2--3} variants that are not dominated on the quality/memory/speed trade-off (Pareto-nondominated) for Phase~2. This avoids arbitrarily committing to a single ``best'' quantization before runtime tuning is known, while still keeping Phase~2's per-configuration model-loading cost low.
+Selection rule: retain all variants that are not dominated on the quality/memory/speed trade-off (Pareto-nondominated) for Phase~2---no fixed top-$k$ cap. This avoids arbitrarily committing to a single ``best'' quantization before runtime tuning is known. In practice (Section~\ref{sec:phase1-results}), all 7 candidate variants turned out Pareto-nondominated, so the rule as stated retained the full set; a bounded compute budget then forced a separate, explicitly documented priority-order subset for the real Phase~2 search itself (Section~\ref{sec:phase2-convergence-results}).
 
 \subsection{Phase 2: Runtime Hyperparameter Search Space}
 \label{sec:phase2-space}
@@ -339,30 +340,38 @@ Including these baselines directly tests the claim---inherited from~\cite{ref11}
 \section{Results and Discussion}
 \label{sec:results}
 
-\status{Sections~\ref{sec:phase1-results}, \ref{sec:phase2-convergence-results}, \ref{sec:robustness}, \ref{sec:best-configs}, and \ref{sec:baseline-comparison-real} are placeholder scaffolding pending Raspberry Pi access. Sections~\ref{sec:validation-results}, \ref{sec:baseline-rehearsal}, and \ref{sec:mock-rehearsal} already contain real results (synthetic functions / mock evaluator, explicitly not hardware data). The subsection structure mirrors~\cite{ref11}'s results section for narrative consistency.}
+\status{Sections~\ref{sec:phase1-results}, \ref{sec:phase2-convergence-results}, \ref{sec:robustness}, and \ref{sec:best-configs} contain real Raspberry Pi~5 results for Q4\_K\_M and Q2\_K (2 of 3 priority variants); Q8\_0 is running. Sections~\ref{sec:validation-results}, \ref{sec:baseline-rehearsal}, and \ref{sec:mock-rehearsal} contain real results (synthetic functions / mock evaluator, explicitly not hardware data). The subsection structure mirrors~\cite{ref11}'s results section for narrative consistency.}
 
 \subsection{Phase 1: Quantization Variant Impact}
 \label{sec:phase1-results}
 
+\status{Real results below (\texttt{python src/phase1\_quant\_sweep.py}, run on the Raspberry Pi~5 target 2026-08-15/16, threads=4, wikitext-2-raw-v1 full test corpus at ctx=512, \texttt{llama-bench} repetitions=3). Full data: \texttt{results/phase1\_table.csv}. Model load time was not instrumented in this run (\texttt{llama\_cpp\_runner.py} doesn't currently isolate it from the bench subprocess's total wall time), a gap disclosed in Section~\ref{sec:limitations} rather than fabricated here.}
+
 \begin{table}[t]
-\caption{Phase 1 quantization variant impact (placeholder)}
+\caption{Phase 1 quantization variant impact (real, Pi~5)}
 \label{tab:phase1-impact}
 \centering
+\footnotesize
 \begin{tabular}{@{}lccccc@{}}
 \toprule
-Variant & PPL & Peak RSS (MB) & Load (s) & Tok/s & Size (MB) \\
+Variant & PPL & Peak RSS (MB) & Gen tok/s & Prompt tok/s & Size (MB) \\
 \midrule
-Q2\_K   & & & & & \\
-Q3\_K\_M & & & & & \\
-Q4\_0   & & & & & \\
-Q4\_K\_M & & & & & \\
-Q5\_K\_M & & & & & \\
-Q8\_0   & & & & & \\
+Q2\_K    & 28.8148 & 495.4  & 25.62 & 34.15  & 413.0 \\
+Q3\_K\_M & 21.6011 & 793.4  & 19.18 & 34.47  & 523.9 \\
+Q4\_0    & 20.6162 & 1197.7 & 18.06 & 116.85 & 608.2 \\
+Q4\_K\_M & 20.4490 & 1257.2 & 17.02 & 70.59  & 637.8 \\
+Q5\_K\_M & 20.1640 & 1465.9 & 14.38 & 60.73  & 746.7 \\
+Q6\_K    & 20.0001 & 1687.6 & 12.26 & 61.31  & 862.5 \\
+Q8\_0    & 19.9734 & 2180.6 & 8.47  & 54.97  & 1116.5 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\ph{1-paragraph discussion --- which variants are Pareto-dominated and dropped, which are carried into Phase 2, and why.}
+Base model for this sweep is Q8\_0, not F16 (Section~\ref{sec:setup}'s documented deviation)---Q8\_0's own row is therefore a same-precision requantization of itself, a consistency check rather than a genuine compression point; its file size/RSS/speed being the largest/slowest of the sweep is exactly what should happen if the pipeline is working correctly.
+
+\textbf{Pareto outcome---all 7 variants retained, and that is itself the finding.} Running the Pareto filter (\texttt{src/common/pareto.py}) over (quality, tokens/s, peak RSS) returned all 7 variants as non-dominated: \texttt{results/phase1\_retained.yaml} lists all 7 in full. This is not a bug or a trivial outcome---it happens because quality, speed, and memory trade off \emph{perfectly monotonically} with quantization level: every step from Q2\_K toward Q8\_0 strictly improves perplexity (28.81$\to$19.97) while strictly increasing memory (495$\to$2181\,MB) and strictly decreasing generation throughput (25.6$\to$8.5\,tok/s), with zero exceptions across all 7 points. A variant would only be Pareto-dominated if some other variant beat it on every axis simultaneously---impossible here since improving on any one axis always costs on the other two. Two things are worth noting about the \emph{shape} of the trade-off: (1)~the marginal quality return shrinks sharply past Q4\_K\_M---Q4\_0$\to$Q4\_K\_M$\to$Q5\_K\_M$\to$Q6\_K$\to$Q8\_0 only improves perplexity from 20.62 to 19.97 (a 3.2\% relative gain) while RSS nearly doubles (1198$\to$2181\,MB) and speed drops by more than half (18.1$\to$8.5\,tok/s)---a classically poor trade past that point for most deployment goals; (2)~Q4\_0 and Q4\_K\_M are close in quality (20.62 vs.\ 20.45) and size (608 vs.\ 638\,MB) but Q4\_K\_M is measurably slower (18.06 vs.\ 17.02\,tok/s) with $\approx$5\% higher peak RSS for a modest quality edge---exactly the kind of nuance a scalar ``pick the best'' rule would hide.
+
+Given the full retained set is impractically large to run the real hardware-in-the-loop Phase~2 search across all~7 (each evaluation costs real seconds, not milliseconds---Section~\ref{sec:cost-argument}, now empirically confirmed), Phase~2 runs on a deliberately chosen 3-variant subset spanning the frontier---Q2\_K (fast/small extreme), Q4\_K\_M (the community-standard ``K-quant sweet spot,'' and the point where marginal quality returns visibly start shrinking per the analysis above), and Q8\_0 (quality extreme)---documented explicitly in \texttt{run\_real\_phase2.py} as \texttt{PHASE2\_VARIANT\_SUBSET}, not silently narrowed from the full retained list. See Section~\ref{sec:phase2-convergence-results} onward.
 
 \subsection{Metaheuristic Validation on Synthetic Functions}
 \label{sec:validation-results}
