@@ -30,6 +30,8 @@ Usage:
 from __future__ import annotations
 
 import csv
+import re
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -78,6 +80,37 @@ def log(msg: str) -> None:
     print(msg, flush=True)
 
 
+# Added after the Pi crashed and rebooted mid-run (2026-08-17), most likely
+# from sustained thermal load -- no thermal_guard.py existed at the time
+# (still-open limitation, see article_draft.md Section 6). This is a minimal,
+# targeted mitigation: check SoC temperature before starting each variant and
+# wait for it to cool rather than launching straight into another ~1-2h of
+# sustained load while already hot.
+COOLDOWN_TEMP_C = 65.0
+COOLDOWN_CHECK_INTERVAL_S = 60
+COOLDOWN_MAX_WAIT_S = 900
+
+
+def read_soc_temp_c(vcgencmd_bin: str = "vcgencmd") -> float:
+    result = subprocess.run([vcgencmd_bin, "measure_temp"], capture_output=True, text=True, timeout=5)
+    m = re.search(r"temp=([\d.]+)", result.stdout)
+    return float(m.group(1))
+
+
+def wait_for_cooldown() -> None:
+    waited = 0
+    while waited < COOLDOWN_MAX_WAIT_S:
+        temp = read_soc_temp_c()
+        if temp < COOLDOWN_TEMP_C:
+            log(f"[real-phase2] SoC temp {temp:.1f}C, below cooldown threshold ({COOLDOWN_TEMP_C}C) -- proceeding")
+            return
+        log(f"[real-phase2] SoC temp {temp:.1f}C >= {COOLDOWN_TEMP_C}C threshold -- cooling down "
+            f"({waited}s waited so far)")
+        time.sleep(COOLDOWN_CHECK_INTERVAL_S)
+        waited += COOLDOWN_CHECK_INTERVAL_S
+    log(f"[real-phase2] cooldown wait exceeded {COOLDOWN_MAX_WAIT_S}s -- proceeding anyway, temp still high")
+
+
 def _style_axes(ax) -> None:
     ax.set_facecolor(CHART_SURFACE)
     ax.spines["top"].set_visible(False)
@@ -110,6 +143,7 @@ def precompute_quality(evaluator: LlamaCppEvaluator) -> None:
 
 def run_variant(variant_name: str, results_dir: Path, figures_dir: Path) -> None:
     log(f"\n{'=' * 70}\nREAL PHASE 2 SEARCH — variant {variant_name}\n{'=' * 70}")
+    wait_for_cooldown()
     model_path = BASE_MODEL_DIR / f"tinyllama-1.1b-{variant_name}.gguf"
     if not model_path.exists():
         log(f"[real-phase2] SKIP {variant_name}: {model_path} not found")
@@ -281,13 +315,15 @@ def run_variant(variant_name: str, results_dir: Path, figures_dir: Path) -> None
 # article_draft.md Section 5.1). Running the real Phase 2 metaheuristic
 # search across all 7 is not tractable in a single-night compute budget at
 # the per-evaluation costs measured here (real hardware, not synthetic).
-# SCOPE DECISION, documented rather than silently narrowed: search 3
-# variants spanning the retained frontier — Q2_K (fast/small extreme),
-# Q4_K_M (the K-quant "sweet spot" the wider community treats as a default),
-# and Q8_0 (quality extreme) — rather than all 7, and even this list is
-# processed in priority order so a partial run still yields the single most
-# representative variant complete.
-PHASE2_VARIANT_SUBSET = ["Q4_K_M", "Q2_K", "Q8_0"]
+# SCOPE DECISION, documented rather than silently narrowed: the first pass
+# searched 3 variants spanning the retained frontier — Q2_K (fast/small
+# extreme), Q4_K_M (the K-quant "sweet spot"), and Q8_0 (quality extreme) —
+# all of which are now complete (see results/phase2_runs/{Q2_K,Q4_K_M,Q8_0}/).
+# EXTENSION (2026-08-17): with the pipeline proven stable across a full
+# unattended run (including surviving a mid-run Pi crash with no data loss,
+# since results were already written to disk), extending to the remaining 4
+# Pareto-retained variants to get full 7/7 coverage rather than 3/7.
+PHASE2_VARIANT_SUBSET = ["Q3_K_M", "Q4_0", "Q5_K_M", "Q6_K"]
 
 
 def main() -> None:
