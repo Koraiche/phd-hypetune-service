@@ -1,0 +1,6 @@
+method,cost,threads,n_batch,n_ctx,kv_cache_type,latency_ms_per_token,quality_neg_ppl,peak_rss_mb,energy_j_per_token,feasible
+PSO,0.02472909713565417,4,221,409,f16,42.54,-31.3272,468.9,3.1726,True
+GWO,0.0,4,153,128,f16,42.99,-31.3272,468.8,1.2571,True
+DE,0.01894377259568652,4,167,387,f16,42.83,-31.3272,467.9,3.0518,True
+Random,0.048249619482496196,4,318,387,f16,44.01,-31.3272,476.9,3.1583,True
+Grid,0.0,4,512,128,f16,44.83,-31.3272,468.0,1.1925,True
