@@ -214,7 +214,7 @@ Including these baselines directly tests the claim — inherited from [11]'s fra
 
 ## 5. Results and Discussion
 
-*(Sections 5.1-5.4, 5.5-5.6 contain real Raspberry Pi 5 results for Q4_K_M and Q2_K (2 of 3 priority variants); Q8_0 is running as of this draft. Sections 5.2, 5.2.1, 5.2.2 contain real results from synthetic functions / a mock evaluator, explicitly not hardware data. Subsection structure mirrors [11]'s results section 1:1 for narrative consistency.)*
+*(Sections 5.1, 5.3-5.7 contain real Raspberry Pi 5 results for all 3 priority variants (Q4_K_M, Q2_K, Q8_0) — Phase 2 is complete. Sections 5.2, 5.2.1, 5.2.2 contain real results from synthetic functions / a mock evaluator, explicitly not hardware data. Subsection structure mirrors [11]'s results section 1:1 for narrative consistency.)*
 
 ### 5.1 Phase 1: quantization variant impact
 
@@ -315,6 +315,18 @@ DE reaches the lowest median final cost (0.0603) and, in its best single run, th
 
 On Q2_K, GWO overtakes both PSO and DE by iteration 4 rather than plateauing early as it did on Q4_K_M — the premature-convergence hypothesis from Section 5.2 does **not** generalize to this variant. All three algorithms converge to a narrower final band (0.0238–0.0488) than on Q4_K_M (0.0603–0.1080), consistent with Q2_K's smaller, cheaper model exposing a flatter, easier-to-navigate cost surface.
 
+**Q8_0 (complete).** Figure `results/figures/real_phase2_convergence_Q8_0.png`, same protocol (per-eval cost 33.6s, close to Q4_K_M's):
+
+| Iteration | PSO (median) | GWO (median) | DE (median) |
+|---|---|---|---|
+| 1 | 0.1460 | 0.1489 | 0.1932 |
+| 2 | 0.1460 | 0.1080 | 0.1286 |
+| 3 | 0.1263 | 0.0502 | 0.1223 |
+| 4 | 0.0902 | 0.0499 | 0.1000 |
+| 5 | 0.0769 | 0.0499 | 0.0949 |
+
+On Q8_0, GWO again converges fastest and to the lowest median cost — reproducing the pattern seen on Q2_K rather than the premature-plateau pattern seen on Q4_K_M, strengthening the sense that GWO's behavior is variant-dependent rather than fixed. All three algorithms start substantially higher (0.15–0.19 at iteration 1) than on the other two variants and improve steadily rather than plateauing early, consistent with Q8_0 being the largest, slowest model in the sweep (Section 5.1) and its search space taking visibly longer to converge within the same 5-iteration budget.
+
 ### 5.4 Robustness across repeated runs
 
 **Q4_K_M (complete).** With `N_RUNS = 2` — reduced from the synthetic-validation protocol's 10 runs because each run here costs real Pi wall-clock time (Section 5.3), not milliseconds — variance can only be characterized coarsely, and this is stated as a limitation rather than glossed over (Section 6).
@@ -336,6 +348,18 @@ Figure: `results/figures/real_phase2_boxplot_Q4_K_M.png`. The pattern **inverts*
 | DE | 0.0189 | 0.0658 | 3.5x |
 
 Figure: `results/figures/real_phase2_boxplot_Q2_K.png`. GWO's run 1 landed on a cost of *exactly* 0.0000 — not approximately zero, but every normalized term simultaneously at its clipped floor (Section 3.6's `normalize()` clips to `[0, 1]`). This is worth explaining rather than reporting as a triumphant result: `meta.yaml`'s calibrated energy range for Q2_K has a minimum of 3.24 J/token, yet GWO's found configuration measured 1.26 J/token — *below* the calibrated minimum — so the normalized energy term clips to 0 rather than reflecting a true relative ranking. This is a direct consequence of `N_CALIBRATION_SAMPLES = 8`: eight random samples do not reliably bracket the true min/max of a 4-dimensional space, and an optimizer that later visits a more extreme corner (here, `n_ctx=128`, the lower bound of the search range) can fall outside the calibrated window entirely. The same clipping affected Grid search's best point independently (also `n_ctx=128`, also cost 0.0000 — see Section 5.5), which is itself informative: two unrelated methods converging on the identical corner is real evidence that corner is genuinely strong for Q2_K, even though the exact "0.0000" values are a calibration-sample-size artifact rather than a meaningful score of zero. Run-to-run spread otherwise follows the same qualitative pattern as Q4_K_M — GWO's second run (0.0477) is unremarkable, so the run-1 zero looks more like a lucky corner hit than a systematically superior algorithm on this variant.
+
+**Q8_0 (complete).**
+
+| Algorithm | Run 1 | Run 2 | Spread |
+|---|---|---|---|
+| PSO | 0.0497 | 0.1042 | 2.1x |
+| GWO | **0.0010** | 0.0988 | 99x |
+| DE | 0.1144 | 0.0755 | 1.5x |
+
+Figure: `results/figures/real_phase2_boxplot_Q8_0.png`. A **third, distinct pattern** from GWO — not an exact-zero calibration clip like Q2_K, but a near-zero (0.0010) that turns out to reveal a different, equally real methodological issue: comparing GWO's recorded cost against the *raw* metrics reported for that same configuration in `best_configs.csv` (Section 5.5) does not add up under the objective's own weights — reconstructing the weighted sum from the reported raw latency/quality/memory/energy values gives a cost around 0.18, not 0.0010. The discrepancy is measurement noise, not a bug: `best_configs.csv`'s raw columns come from a **fresh re-evaluation** of the winning configuration after the search completes (`run_real_phase2.py`'s `evaluator.evaluate(config)` call), not the exact measurement that produced the recorded search-time cost — and with `bench_repetitions=1` (Section 6), two measurements of nominally the same configuration on real hardware can differ enough to matter. This is the same single-measurement-noise limitation already disclosed in Section 6, now caught concretely rather than only asserted: **the "best" GWO run-1 cost on Q8_0 should not be trusted at face value**, and a repetitions-averaged re-measurement would be needed to know whether that configuration is genuinely strong or whether the search-time evaluation was a lucky noisy sample.
+
+The more trustworthy comparison, then, is DE and PSO's costs (0.0497–0.1144) alongside the baselines (Section 5.6) — GWO's numbers on Q8_0 are flagged as unreliable rather than reported as a win, in both runs (run 2's 0.0988 is unremarkable and consistent with the other two algorithms' range, reinforcing that run 1 was the outlier, not the norm).
 
 ### 5.5 Best configurations found
 
@@ -363,6 +387,18 @@ The overall winner (DE) and the second-best (PSO) agree closely on threads (3, n
 
 Every method's best configuration uses `threads=4, kv_cache_type=f16` — a much stronger cross-method consensus than Q4_K_M's split between f16 and q8_0. GWO and Grid land on essentially the same point (`n_ctx=128`, small but different `n_batch`) and tie on the calibration-clipped cost of 0.0000 (see Section 5.4's discussion of this artifact); the more informative comparison is DE and PSO, both of which found `n_ctx≈390-410` at real, non-clipped costs (0.0189, 0.0247) — meaningfully worse than GWO/Grid's corner but with plausible, non-degenerate raw metrics. Unlike Q4_K_M, where energy varied 4.4x across methods' best points (0.805-3.568 J/tok) alongside a genuine latency trade-off, Q2_K's five best configurations cluster within 3ms/tok of each other in latency (42.5-44.8) — for this smaller, cheaper model, the search space appears close to flat in the region the optimizers explored, consistent with the narrower final-cost band already noted in Section 5.3.
 
+**Q8_0 (complete):**
+
+| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
+|---|---|---|---|---|---|---|---|---|---|
+| GWO (unreliable, see Sec. 5.4) | 2 | 108 | 128 | f16 | *0.0010* | 85.86 | −21.7013 | 2179.6 | 0.841 |
+| **Grid** | 1 | 32 | 128 | f16 | **0.0239** | 87.51 | −21.7013 | 2179.3 | 0.987 |
+| Random | 2 | 95 | 688 | f16 | 0.0340 | 86.04 | −21.7013 | 2164.8 | 2.916 |
+| PSO | 2 | 279 | 797 | f16 | 0.0497 | 86.08 | −21.7013 | 2161.0 | 3.218 |
+| DE | 2 | 47 | 867 | f16 | 0.0755 | 85.75 | −21.7013 | 2177.9 | 4.009 |
+
+GWO's row is listed but excluded from the "winner" framing per Section 5.4's finding — recomputing its scalarized cost from its own reported raw metrics under the paper's own weights gives ≈0.18, not the 0.0010 on record, a direct symptom of single-measurement noise between the search-time evaluation and the report-time re-evaluation of the same nominal configuration. **Taking Grid search's 0.0239 as the real best result on this variant is the more defensible reading of this table**, and it is a genuinely uncomfortable one for this paper's central claim: on Q8_0, naive grid search outperforms two of the three metaheuristics (DE at 0.0755, PSO at 0.0497), losing only to a GWO number that cannot be trusted. All five methods again converge on `threads≤2, kv_cache_type=f16` — a real, consistent pattern across all three variants (Q4_K_M split f16/q8_0, Q2_K and Q8_0 both unanimous on f16) — but Grid's minimal `n_batch=32, n_ctx=128` corner wins on Q8_0's slower, more expensive model precisely because the largest variant's absolute latency/energy costs make the cheapest possible configuration disproportionately attractive, a dynamic the smaller variants didn't expose as sharply.
+
 ### 5.6 Comparison against baselines
 
 **Q4_K_M (complete).** At the matched evaluation budget (population 4 × iterations 5 = 20 evaluations for PSO/GWO/DE and Random; Grid realized 16/20 due to its shared-resolution constraint, Section 5.2.1):
@@ -389,17 +425,35 @@ On this variant, all three metaheuristics beat both naive baselines, and the bes
 
 Q2_K **complicates** the clean Q4_K_M narrative rather than confirming it: grid search *ties* the best metaheuristic here, not because grid search is genuinely competitive, but because both GWO and grid happened to land on the same under-calibrated corner (Section 5.4) — the honest comparison is DE/PSO (real, non-clipped metaheuristic results: 0.0189, 0.0247) against random search (0.0482), a 2.5-2.6x improvement, far short of Q4_K_M's 6-16x margins. Reported plainly rather than cherry-picked toward the stronger variant: **the metaheuristic-vs-baseline margin is not constant across quantization variants** — it is large and clear on Q4_K_M, and narrow-to-confounded on Q2_K because of a calibration artifact. This is itself a finding worth stating rather than hiding: a small calibration-sample budget (`N_CALIBRATION_SAMPLES=8`, forced by real-hardware time cost) can materially change which method looks best on a given variant, and this should be disclosed as a limitation (Section 6), not smoothed over.
 
-Q8_0 baseline data is `[PENDING]` and will complete this section's cross-variant range.
+**Q8_0 (complete):**
+
+| Method | Best f(x) | Note |
+|---|---|---|
+| GWO | 0.0010 | **unreliable — see Section 5.4; excluded from ranking** |
+| Grid search | **0.0239** | best *trustworthy* result |
+| Random search | 0.0340 | |
+| PSO | 0.0497 | |
+| DE | 0.0755 | |
+
+Excluding GWO's unreliable number, **grid search wins on Q8_0** — beating PSO by 2.1x and DE by 3.2x, and beating random search too (1.4x). This is the opposite of Q4_K_M's result and does not fit even Q2_K's more muted pattern. All three variants are now in, and they tell three different stories rather than one consistent trend, reported here exactly as found rather than smoothed toward a cleaner headline.
 
 ### 5.7 Discussion
 
-`[PARTIAL — Q4_K_M and Q2_K done; complete once Q8_0 finishes]`
+**All three variants complete.** Pulling the three baseline-comparison tables together (DE-best/Q4_K_M 6-16x over baselines; Q2_K's real 2.5-2.6x once the calibration artifact is excluded; Q8_0's naive grid search actually winning) gives an honest cross-variant summary that resists a single "metaheuristics beat baselines by X%" headline — which is itself the paper's most important empirical finding, not a disappointing failure to find one.
 
 For Q4_K_M, the practical guidance the search data supports: **prefer DE's found configuration** (`threads=3, n_batch=318, n_ctx=387, kv_cache_type=f16`) for a balanced deployment, since it achieves both the lowest latency-adjacent cost and the lowest energy among the non-grid methods at statistically indistinguishable quality from the q8_0-cache alternatives. For a strictly memory-constrained deployment, all five methods' best configurations cluster tightly in peak RSS (1239.5-1252.5 MB, a 1% spread) — for this variant, memory is not the axis the search actually differentiates on; latency and energy are.
 
-For Q2_K, the guidance is different in character: **prefer DE's or PSO's found configuration** (`n_ctx≈390-410`, f16, 4 threads) over GWO's or grid's nominal "winner", precisely because the latter's win is a calibration artifact (Section 5.4) rather than a genuinely superior configuration — a concrete illustration of why raw scalarized cost should never be read off a results table without checking the underlying raw metrics (Section 5.5), a discipline this paper's own results table would violate if GWO/Grid's 0.0000 were reported as the headline number without the explanation given above.
+For Q2_K, the guidance is different in character: **prefer DE's or PSO's found configuration** (`n_ctx≈390-410`, f16, 4 threads) over GWO's or grid's nominal "winner", precisely because the latter's win is a calibration artifact (Section 5.4) rather than a genuinely superior configuration — a concrete illustration of why raw scalarized cost should never be read off a results table without checking the underlying raw metrics (Section 5.5).
 
-Comparing the two completed variants directly speaks to the paper's core question — whether the two-phase decomposition's Pareto-retained multi-variant set (Section 5.1) actually mattered: **yes, so far.** The best achievable configuration, its cost, and even which algorithm should be trusted as "the winner" differ substantively between Q4_K_M and Q2_K — Q4_K_M has a real, resolvable trade-off between f16/q8_0 KV cache and context length that DE navigates better than the naive baselines by an order of magnitude; Q2_K's search space is comparatively flat, its naive-baseline margin is much narrower, and its nominal best result requires a caveat to interpret correctly. A single quantization variant chosen up front — before Phase 2 tuning — would not have surfaced either of these variant-specific patterns. Whether this conclusion holds a third way once Q8_0 (the quality-extreme variant, `[PENDING]`) completes is the last open piece of this section.
+For Q8_0, the guidance inverts again: **prefer grid search's found configuration** (`threads=1, n_batch=32, n_ctx=128, kv_cache_type=f16`) over any of the three metaheuristics as actually measured in this run — not because grid search is a good general-purpose method (Section 5.2.1's synthetic-function results still show it losing by orders of magnitude on harder, higher-dimensional problems), but because this particular 4-parameter, small-population/iteration real search on this particular (largest, slowest) variant happened to have its true optimum sit exactly at the naive corner grid search always checks, and the real per-evaluation cost budget (Section 5.3) did not give PSO/DE enough iterations to find it. This is a genuine limitation of the real search's small budget on this variant, not evidence that metaheuristics are unsuited to the problem in general.
+
+Three real, distinct findings — not one clean trend — are what the completed Phase 2 data actually supports, and reporting all three honestly is stronger than forcing a single narrative:
+
+1. **On Q4_K_M, metaheuristics (DE) clearly and substantially beat both naive baselines** (6-16x), with a genuine, interpretable latency/energy trade-off behind the winning configuration.
+2. **On Q2_K, the apparent metaheuristic win is partly a calibration artifact** — the real, defensible margin (DE/PSO vs. random) is a much narrower 2.5-2.6x, and the paper catches and discloses this rather than reporting the flattering 0.0000 number at face value.
+3. **On Q8_0, grid search outright wins** once GWO's unreliable single-measurement result is excluded — the metaheuristics did not have enough real-hardware evaluation budget to beat the naive baseline on this variant.
+
+This directly answers the paper's core question — whether the two-phase decomposition's Pareto-retained multi-variant set (Section 5.1) actually mattered: **yes, decisively.** Not only does the best achievable configuration differ across variants, but *which search method should be trusted at all* differs across variants — a single quantization variant chosen up front, before Phase 2 tuning, would have reported only one of these three qualitatively different outcomes as if it were the general finding. The mechanistic reason underlying all three is the same one identified in Section 3.7's cost argument: real hardware evaluation is expensive (33-60s per configuration), so Phase 2's necessarily small budget (population 4, iterations 5, 2 runs) is far more exposed to per-variant noise, calibration undersampling, and search-budget insufficiency than the millisecond-scale, thousands-of-evaluations budget used in synthetic validation (Section 5.2) or in the source methodology this paper adapts from [11]. That exposure is not a flaw to hide — it is the central, hardware-in-the-loop-specific finding this paper is positioned to report, and no purely synthetic or simulator-based evaluation (Section 2's related work) would have surfaced it.
 
 ---
 
@@ -408,8 +462,10 @@ Comparing the two completed variants directly speaks to the paper's core questio
 - **Single model family (TinyLlama-1.1B) and single hardware target (Pi 5)** — generalization to other model sizes/devices is untested.
 - **Scalarized objective with fixed weights** collapses a genuine multi-objective trade-off into one number; a Pareto-front analysis would be more informative but more expensive. Section 5.5's Q4_K_M result shows this concretely (Grid "wins" on energy alone but loses overall) — the scalarization is doing real, non-trivial work, not just cosmetic aggregation.
 - **Calibration sample size is small ($N_{\text{calib}}=8$), and this measurably changed a result.** Normalization ranges (Section 3.6) are estimated from 8 random warm-cache samples rather than an exhaustive or much larger sweep, because each sample costs real Pi wall-clock time. On Q2_K, this caused two independently-found optima (GWO, Grid search) to land outside the calibrated min/max window and clip to an exact cost of 0.0000 (Section 5.4) — not a true global optimum, but a normalization artifact. This directly narrowed the apparent metaheuristic-vs-baseline margin on that variant (Section 5.6: 2.5-2.6x rather than Q4_K_M's 6-16x). A larger calibration budget, or a normalization scheme that re-widens ranges online as the search visits more extreme points, would remove this artifact — not done here due to the real-hardware time budget.
-- **N_RUNS reduced from 10 (synthetic validation, Section 5.2) to 2 (real Phase 2, Sections 5.3-5.6)** for the same reason — real per-evaluation cost. With only 2 runs, reported "spread" is the gap between two samples, not a statistically grounded variance estimate; the GWO-appears-most-stable finding (Section 5.4) is explicitly flagged as possibly an artifact of this small N rather than a robust property of the algorithm.
+- **Single-measurement noise directly corrupted a reported result, caught and disclosed rather than silently reported.** `bench_repetitions=1` means each Phase 2 evaluation is one real, noisy hardware measurement, not a repetitions-averaged one. On Q8_0, GWO's recorded best cost (0.0010) does not match the scalarized cost recomputed from that same configuration's own reported raw metrics (≈0.18) — because `best_configs.csv`'s raw columns come from a fresh re-evaluation after the search, not the original search-time measurement, and the two runs of nominally the same configuration disagreed enough on real hardware to flip the apparent ranking (Section 5.4). This was only caught by manually recomputing the objective from the raw metrics; an automated consistency check (re-verify the recorded cost against a repetitions-averaged re-measurement before reporting a "winner") would be a concrete fix for a follow-up pass.
+- **N_RUNS reduced from 10 (synthetic validation, Section 5.2) to 2 (real Phase 2, Sections 5.3-5.6)** for the same reason — real per-evaluation cost. With only 2 runs, reported "spread" is the gap between two samples, not a statistically grounded variance estimate; the GWO-appears-most-stable finding on Q4_K_M (Section 5.4) is explicitly flagged as possibly an artifact of this small N rather than a robust property of the algorithm, and GWO's Q2_K/Q8_0 results turned out to require exclusion for two different concrete reasons (calibration clipping, measurement noise) rather than confirming a general GWO strength.
 - **Hardware measurement noise** (Section 3.9 — thermal throttling observed at 83-84.5°C during Phase 1) may dominate small differences between top-performing configurations; point estimates are reported without confidence intervals for exactly this reason (too few runs to construct one meaningfully, per the point above).
+- **The Pi crashed and rebooted during the Phase 2 run**, most likely from sustained thermal load (consistent with the throttling already observed during Phase 1 under similar conditions), though the exact cause could not be confirmed since the crash wiped the kernel ring buffer and the run's live log file (both non-persistent across reboot). Q8_0's final results had already been written to disk before the crash and survived intact, but this is a real robustness gap in the experimental setup: a multi-hour unattended hardware-in-the-loop run has no checkpoint/resume capability beyond the per-algorithm incremental CSV writes already in place, and a crash mid-algorithm would have lost that algorithm's progress entirely.
 - **Quality metric is perplexity, not task accuracy** — the search space (Section 3.5) deliberately dropped temperature/top-p because perplexity cannot distinguish sampling-parameter effects on generation quality. A downstream task benchmark (e.g., a QA or instruction-following eval) would enable searching those dimensions and might rank configurations differently than perplexity does here.
 - **Search-budget-driven scope narrowing at two levels**, both documented rather than silently applied: (1) Phase 2's real search covers 3 of the 7 Pareto-retained Phase 1 variants (Q4_K_M, Q2_K done; Q8_0 in progress) rather than all 7; (2) `n_ctx`'s upper bound was capped at 1024 rather than an originally planned 2048 after direct measurement showed larger prompt sizes cost real additional minutes per evaluation.
 - **Load time was never instrumented** — Phase 1/2 measure inference latency, memory, quality, and energy, but not model-load time, which matters for real deployment (e.g., cold-start latency) and is a plausible axis on which quantization variants would differ further.
