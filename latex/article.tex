@@ -132,8 +132,8 @@ Based on this first-pass check, no located work combines all of: (a) a populatio
 
 \begin{figure}[t]
 \centering
-\todofig{pipeline diagram --- Prompt benchmark $\rightarrow$ Phase 1 (exhaustive quant sweep) $\rightarrow$ Phase 2 (metaheuristic runtime search, conditioned on best quant variant(s)) $\rightarrow$ Multi-objective evaluation on device $\rightarrow$ Best configuration}
-\caption{Overall pipeline (placeholder).}
+\includegraphics[width=\linewidth]{pipeline_diagram.png}
+\caption{Overall two-phase pipeline: an exhaustive Phase~1 sweep over quantization variants, followed by Phase~2's metaheuristic runtime-parameter search, both evaluated on-device against the joint objective (Section~\ref{sec:objective}).}
 \label{fig:pipeline}
 \end{figure}
 

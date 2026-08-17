@@ -60,7 +60,7 @@ Based on this first-pass check, no located work combines all of: (a) a populatio
 
 ### 3.1 Overview
 
-Figure 1 `[PLACEHOLDER FIGURE — pipeline diagram: Prompt benchmark → Phase 1 (exhaustive quant sweep) → Phase 2 (metaheuristic runtime search, conditioned on best quant variant(s)) → Multi-objective evaluation on device → Best configuration]`.
+Figure 1 (`results/figures/pipeline_diagram.png`) shows the overall two-phase pipeline: an exhaustive Phase 1 sweep over quantization variants, followed by Phase 2's metaheuristic runtime-parameter search, both evaluated on-device against the joint objective (Section 3.6).
 
 We decompose the search space into two tiers, mirroring the preprocessing/feature-selection → hyperparameter-tuning structure of [11]:
 
@@ -99,7 +99,7 @@ For each variant, evaluate once on the benchmark subset:
 - Baseline tokens/second at default runtime settings
 - Model file size on disk
 
-This produces a table directly analogous to [11]'s Table 1 (pre-processing impact) and Table 2 (feature-selection impact) — see Section 5.1, Table `[PLACEHOLDER]`.
+This produces a table directly analogous to [11]'s Table 1 (pre-processing impact) and Table 2 (feature-selection impact) — see Section 5.1's Phase 1 quantization variant impact table.
 
 Selection rule: retain all variants that are not dominated on the quality/memory/speed trade-off (Pareto-nondominated) for Phase 2 — no fixed top-k cap. This avoids arbitrarily committing to a single "best" quantization before runtime tuning is known. In practice (Section 5.1), all 7 candidate variants turned out Pareto-nondominated, so the rule as stated retained the full set; a bounded compute budget then forced a separate, explicitly documented priority-order subset for the real Phase 2 search itself (Section 5.3).
 
