@@ -489,15 +489,34 @@ Future work, in priority order suggested by the limitations already surfaced in 
 
 ## Funding
 
-`[PLACEHOLDER]`
+`[Default statement below — no external funding source is recorded anywhere in this project's configuration, code, or correspondence, and none was mentioned during this work. Authors: please verify and replace before submission if a real funding source exists (institutional, grant, or otherwise); this is a default in the absence of contrary information, not a confirmed fact.]`
+
+This research received no specific grant from any funding agency in the public, commercial, or not-for-profit sectors.
 
 ## Author Contributions (CRediT)
 
-`[PLACEHOLDER — table as in [11]]`
+`[Default assignment below, following the conventional PhD-candidate-plus-supervisors pattern implied by the author affiliations (Section 4.1's author block): first author performing the hands-on technical work, co-authors in a supervisory/advisory role at the same or an affiliated laboratory. This is a default, not a verified fact — all three authors should review and correct it before submission, since the actual division of labor (e.g., whether Rachid Dehbi or Amine Dehbi contributed directly to code, analysis, or writing beyond supervision) is not something this draft has any basis to know.]`
+
+| Role | F. Koraiche | R. Dehbi | A. Dehbi |
+|---|---|---|---|
+| Conceptualization | ✓ | ✓ | |
+| Methodology | ✓ | | |
+| Software | ✓ | | |
+| Validation | ✓ | | |
+| Formal analysis | ✓ | | |
+| Investigation | ✓ | | |
+| Data curation | ✓ | | |
+| Writing — original draft | ✓ | | |
+| Writing — review & editing | | ✓ | ✓ |
+| Visualization | ✓ | | |
+| Supervision | | ✓ | ✓ |
+| Project administration | | ✓ | |
 
 ## Conflict of Interest
 
-`[PLACEHOLDER]`
+`[Default statement below — nothing in this project indicates a conflict (no commercial sponsor, no equity/consulting relationship on record). Authors: please verify before submission.]`
+
+The authors declare no known competing financial interests or personal relationships that could have influenced the work reported in this paper.
 
 ## Data Availability
 
@@ -545,19 +564,19 @@ Code, configuration, and all raw measurement data (Phase 1 sweep results, Phase 
 
 ---
 
-## Appendix A — Planned repository structure (for `hyptune/`)
+## Appendix A — Repository structure (for `hyptune/`, as of 2026-08-17)
 
 ```
 hyptune/
 ├── article_draft.md          # this file
 ├── data/
-│   └── prompts/               # benchmark prompt set (Section 3.3)
+│   └── prompts/               # WikiText-2 corpora (Section 4)
 ├── models/
 │   └── tinyllama-gguf/        # quantized model variants (Phase 1 outputs)
 ├── src/
-│   ├── phase1_quant_sweep.py  # exhaustive quant-variant evaluation [Pi-dependent, built, not yet run]
+│   ├── phase1_quant_sweep.py  # exhaustive quant-variant evaluation [done, run on Pi 5]
 │   ├── common/
-│   │   ├── llama_cpp_runner.py  # quantize/bench/perplexity subprocess wrappers [Pi-dependent]
+│   │   ├── llama_cpp_runner.py  # quantize/bench/perplexity subprocess wrappers [done, run on Pi 5]
 │   │   └── pareto.py            # non-dominated filter, used by Phase 1 [done]
 │   ├── phase2_search/
 │   │   ├── result.py            # shared OptimizeResult dataclass [done]
@@ -565,33 +584,35 @@ hyptune/
 │   │   ├── gwo.py                # [done, validated]
 │   │   ├── de.py                  # [done, validated]
 │   │   ├── parameter_space.py   # continuous<->discrete/categorical encode/decode, Section 3.5 [done, tested]
-│   │   ├── objective.py         # f(x) from Section 3.6 [done, tested — real Evaluator not yet implemented]
+│   │   ├── objective.py         # f(x) from Section 3.6 [done, tested]
 │   │   ├── mock_evaluator.py    # SYNTHETIC evaluator for plumbing rehearsal only [done — never a real data source]
-│   │   └── run_mock_rehearsal.py  # Section 5.2.2 driver [done, run]
+│   │   ├── run_mock_rehearsal.py  # Section 5.2.2 driver [done, run]
+│   │   ├── llama_cpp_evaluator.py # real Evaluator against llama.cpp on Pi 5 [done, run]
+│   │   └── run_real_phase2.py     # real Phase 2 driver, all 3 variants [done, run on Pi 5]
 │   ├── validation/
 │   │   ├── synthetic_functions.py  # Sphere/Goldstein-Price/FindValues, Section 3.8 [done]
 │   │   ├── run_validation.py       # convergence + boxplot driver, Section 5.2 [done, run]
 │   │   └── plot_function_representations.py  # Table 3 surface plots, Section 3.8 [done, run]
 │   ├── baselines/
-│   │   ├── grid_search.py          # [done]
-│   │   ├── random_search.py        # [done]
+│   │   ├── grid_search.py          # [done, run on synthetic + real objective]
+│   │   ├── random_search.py        # [done, run on synthetic + real objective]
 │   │   └── compare_baselines.py    # matched-budget comparison, Section 5.2.1/4.3 [done, run]
 │   └── measurement/
-│       ├── power_logger.py    # energy measurement, Section 3.9 [not started — needs hardware]
-│       └── thermal_guard.py   # cooldown / throttle detection [not started — needs Pi]
+│       └── power_logger.py    # real Pi 5 PMIC energy measurement, Section 3.9 [done, run on Pi 5]
 ├── tests/
 │   ├── test_parameter_space.py  # [done, passing]
 │   └── test_objective.py        # [done, passing]
-├── results/
-│   ├── phase1_table.csv       # [pending Pi]
-│   ├── validation/            # [done — Section 5.2 data]
-│   ├── baselines/             # [done — Section 5.2.1 data]
-│   ├── mock_phase2/           # [done — Section 5.2.2 SYNTHETIC data, not real findings]
-│   ├── phase2_runs/           # [pending Pi — real Phase 2 data goes here]
-│   └── figures/               # convergence_*.png, boxplot_*.png, baseline_comparison_*.png, mock_phase2_*.png [done]
-└── notebooks/
-    └── analysis.ipynb         # generates Section 5 tables/figures [not started]
+└── results/
+    ├── phase1_table.csv       # [done — 7 variants, real Pi 5 data]
+    ├── phase1_retained.yaml   # [done — all 7 Pareto-nondominated]
+    ├── validation/            # [done — Section 5.2 data]
+    ├── baselines/             # [done — Section 5.2.1 data]
+    ├── mock_phase2/           # [done — Section 5.2.2 SYNTHETIC data, not real findings]
+    ├── phase2_runs/           # [done — Q4_K_M, Q2_K, Q8_0, real Pi 5 data]
+    └── figures/               # includes real hardware figures alongside synthetic/mock ones [done]
 ```
+
+Not built: a `thermal_guard.py` cooldown/throttle-mitigation module was planned but never implemented (Section 6); Phase 1 and Phase 2 both ran without it, and observed thermal-throttling events (Section 3.9) are disclosed as a measurement-noise source rather than mitigated. A planned `notebooks/analysis.ipynb` was also never built — figures and tables were generated directly by the driver scripts listed above instead.
 
 ## Appendix B — Two-phase search pseudocode
 

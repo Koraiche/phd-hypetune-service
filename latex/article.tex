@@ -874,25 +874,42 @@ Future work, in priority order suggested by the limitations already surfaced in 
 \end{itemize}
 
 \section*{Funding}
-\ph{Funding statement.}
+\status{Default statement below---no external funding source is recorded anywhere in this project's configuration, code, or correspondence, and none was mentioned during this work. \textbf{Authors: please verify and replace before submission if a real funding source exists} (institutional, grant, or otherwise); this is a default in the absence of contrary information, not a confirmed fact.}
+
+This research received no specific grant from any funding agency in the public, commercial, or not-for-profit sectors.
 
 \section*{Author Contributions (CRediT)}
-\ph{Table as in \cite{ref11} --- fill in once co-authors are confirmed.}
+\status{Default assignment below, following the conventional PhD-candidate-plus-supervisors pattern implied by the author affiliations (Section~\ref{sec:setup}'s author block): first author performing the hands-on technical work, co-authors in a supervisory/advisory role at the same or an affiliated laboratory. \textbf{This is a default, not a verified fact---all three authors should review and correct it before submission}, since the actual division of labor (e.g., whether Rachid Dehbi or Amine Dehbi contributed directly to code, analysis, or writing beyond supervision) is not something this draft has any basis to know.}
 
 \begin{table}[h]
-\caption{CRediT author statement (placeholder)}
+\caption{CRediT author statement (default assignment---to be verified by all authors)}
+\label{tab:credit}
 \centering
-\begin{tabular}{@{}lcccccccc@{}}
+\footnotesize
+\begin{tabular}{@{}p{2.6cm}ccc@{}}
 \toprule
-Author & C & M & So & Va & Fo & I & R & \ldots \\
+Role & F. Koraiche & R. Dehbi & A. Dehbi \\
 \midrule
-\ph{Name} & & & & & & & & \\
+Conceptualization & \checkmark & \checkmark & \\
+Methodology & \checkmark & & \\
+Software & \checkmark & & \\
+Validation & \checkmark & & \\
+Formal analysis & \checkmark & & \\
+Investigation & \checkmark & & \\
+Data curation & \checkmark & & \\
+Writing---original draft & \checkmark & & \\
+Writing---review \& editing & & \checkmark & \checkmark \\
+Visualization & \checkmark & & \\
+Supervision & & \checkmark & \checkmark \\
+Project administration & & \checkmark & \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \section*{Conflict of Interest}
-\ph{Conflict of interest statement.}
+\status{Default statement below---nothing in this project indicates a conflict (no commercial sponsor, no equity/consulting relationship on record). \textbf{Authors: please verify before submission.}}
+
+The authors declare no known competing financial interests or personal relationships that could have influenced the work reported in this paper.
 
 \section*{Data Availability}
 Code, configuration, and all raw measurement data (Phase~1 sweep results, Phase~2 convergence/robustness/best-configuration CSVs, and figures) referenced in this paper are maintained at \url{https://github.com/Koraiche/phd-hypetune-service}, currently a private repository (confirmed 2026-08-17: returns 404 to unauthenticated access) that will be made public upon publication. The WikiText-2 corpus used for perplexity measurement (Section~\ref{sec:setup}) is a standard, separately-licensed public dataset and is not redistributed in this repository.
@@ -937,51 +954,55 @@ Code, configuration, and all raw measurement data (Phase~1 sweep results, Phase~
 
 \appendices
 
-\section{Planned Repository Structure (for \texttt{hyptune/})}
+\section{Repository Structure (for \texttt{hyptune/}, as of 2026-08-17)}
 
 {\scriptsize
 \begin{verbatim}
 hyptune/
 |-- article_draft.md / article.tex
-|-- data/prompts/         (benchmark prompts)
+|-- data/prompts/         (WikiText-2 corpora)
 |-- models/               (quantized GGUF variants)
 |-- src/
-|   |-- phase1_quant_sweep.py  [Pi-dependent]
+|   |-- phase1_quant_sweep.py    [done, run on Pi 5]
 |   |-- common/
-|   |   |-- llama_cpp_runner.py [Pi-dependent]
-|   |   `-- pareto.py           [done]
+|   |   |-- llama_cpp_runner.py  [done, run on Pi 5]
+|   |   `-- pareto.py            [done]
 |   |-- phase2_search/
-|   |   |-- result.py           [done]
-|   |   |-- pso.py              [done, validated]
-|   |   |-- gwo.py              [done, validated]
-|   |   |-- de.py               [done, validated]
-|   |   |-- parameter_space.py  [done, tested]
-|   |   |-- objective.py        [done, tested]
-|   |   |-- mock_evaluator.py   [done, SYNTHETIC]
-|   |   `-- run_mock_rehearsal.py [done, run]
+|   |   |-- result.py            [done]
+|   |   |-- pso.py               [done, validated]
+|   |   |-- gwo.py               [done, validated]
+|   |   |-- de.py                [done, validated]
+|   |   |-- parameter_space.py   [done, tested]
+|   |   |-- objective.py         [done, tested]
+|   |   |-- mock_evaluator.py    [done, SYNTHETIC]
+|   |   |-- run_mock_rehearsal.py    [done, run]
+|   |   |-- llama_cpp_evaluator.py   [done, run on Pi 5]
+|   |   `-- run_real_phase2.py       [done, run on Pi 5, all 3 variants]
 |   |-- validation/
 |   |   |-- synthetic_functions.py    [done]
 |   |   |-- run_validation.py         [done, run]
 |   |   `-- plot_function_representations.py [done]
 |   |-- baselines/
-|   |   |-- grid_search.py       [done]
-|   |   |-- random_search.py     [done]
+|   |   |-- grid_search.py       [done, run on synthetic + real objective]
+|   |   |-- random_search.py     [done, run on synthetic + real objective]
 |   |   `-- compare_baselines.py [done, run]
 |   `-- measurement/
-|       |-- power_logger.py      [needs hardware]
-|       `-- thermal_guard.py     [needs Pi]
+|       `-- power_logger.py      [done, run on Pi 5 --- real PMIC energy]
 |-- tests/
 |   |-- test_parameter_space.py  [passing]
 |   `-- test_objective.py        [passing]
 `-- results/
-    |-- phase1_table.csv    [pending Pi]
+    |-- phase1_table.csv     [done --- 7 variants, real Pi 5 data]
+    |-- phase1_retained.yaml [done --- all 7 Pareto-nondominated]
     |-- validation/          [done]
     |-- baselines/           [done]
     |-- mock_phase2/         [done, SYNTHETIC]
-    |-- phase2_runs/         [pending Pi]
-    `-- figures/             [done, synthetic/mock]
+    |-- phase2_runs/         [done --- Q4_K_M, Q2_K, Q8_0, real Pi 5 data]
+    `-- figures/             [done --- includes real hardware figures]
 \end{verbatim}
 }
+
+Not built: a \texttt{thermal\_guard.py} cooldown/throttle-mitigation module was planned but never implemented (Section~\ref{sec:limitations}); Phase~1 and Phase~2 both ran without it, and observed thermal-throttling events (Section~\ref{sec:measurement-protocol}) are disclosed as a measurement-noise source rather than mitigated.
 
 \section{Two-Phase Search Pseudocode}
 
