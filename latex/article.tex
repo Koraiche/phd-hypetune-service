@@ -279,9 +279,9 @@ Implementation notes (all in \texttt{src/phase2\_search/}): PSO uses global-best
 Unlike~\cite{ref11}'s objective function (a deterministic or lightly-stochastic cross-validation error), our fitness function is measured on physical hardware and is subject to:
 
 \begin{itemize}
-  \item \textbf{Thermal throttling:} consecutive high-load evaluations can raise SoC temperature and trigger frequency scaling. Mitigation: \ph{fixed cooldown interval between evaluations; monitor via vcgencmd measure\_temp; discard/re-run evaluations above a temperature threshold}.
-  \item \textbf{OS/background jitter:} \ph{run with minimal background services; pin process priority; repeat each evaluation k times and use median}.
-  \item \textbf{Energy measurement:} \ph{USB-C inline power meter / INA219 sensor on GPIO; measure average watts over the generation window, multiply by wall-clock time and divide by tokens generated to get joules/token}.
+  \item \textbf{Thermal throttling:} consecutive high-load evaluations can raise SoC temperature and trigger frequency scaling. \textbf{Observed, not just anticipated:} during the Phase~1 sweep (2026-08-15), \texttt{vcgencmd get\_throttled} reported \texttt{0xe0000} (frequency-capping, throttling, and soft-temperature-limit ``has occurred'' bits all set) after roughly 80 minutes of sustained perplexity computation, SoC temperature peaking around 83\textdegree C; a repeat check during Phase~2 showed \texttt{0xe0008} at 84.5\textdegree C. No cooldown/thermal-guard mitigation was implemented for either run---both were allowed to proceed regardless, on the reasoning that a real data point under realistic sustained-load conditions was more valuable than delaying for tooling that doesn't exist yet, but later-evaluated configurations within a long run may carry more thermal-throttling-induced noise than earlier ones, a confound reported here rather than papered over. A \texttt{thermal\_guard.py} mitigation remains unbuilt; listed as a limitation (Section~\ref{sec:limitations}), not a solved problem.
+  \item \textbf{OS/background jitter:} no dedicated background-service minimization or process-priority pinning was implemented; the real Phase~2 run's per-evaluation cost (32.9--59.9\,s depending on variant) is a single measurement per configuration (\texttt{bench\_repetitions=1}), not a median of repeats, so this noise source is not averaged out and is folded into the same ``too few runs for confidence intervals'' limitation as thermal noise (Section~\ref{sec:limitations}).
+  \item \textbf{Energy measurement: solved via the Pi~5's on-board PMIC, not external hardware.} The originally planned USB-C inline power meter or INA219 GPIO sensor was never needed---the Pi~5's power management IC exposes real per-rail voltage/current telemetry directly via \texttt{vcgencmd pmic\_read\_adc}, parsed by \texttt{src/measurement/power\_logger.py}. Total system power is the sum of V$\times$I across all reported rails; energy per token is that average power, sampled concurrently with the benchmark run (1.0\,s interval---reduced from an initial 0.2\,s after measurement showed the higher rate added only $\approx$6\% wall-clock overhead vs.\ bare execution), multiplied by wall-clock generation time and divided by tokens generated. Validated by a standalone sanity test against a \texttt{sleep 3} command (energy$\approx$20.75\,J, avg power$\approx$6.9\,W, peak$\approx$8.0\,W, 9 samples---mechanically correct) before being trusted on real inference workloads, then wired into a combined instrumented-bench routine that runs one benchmark subprocess with concurrent RSS-polling and power-polling threads rather than three separate model runs per evaluation.
 \end{itemize}
 
 This measurement noise is itself reported as part of the robustness analysis (Section~\ref{sec:robustness} boxplots), extending~\cite{ref11}'s robustness protocol (10 runtimes $\times$ 100 iterations) to explicitly account for a noise source that does not exist in synthetic-function or classical-ML validation.
@@ -299,12 +299,12 @@ This measurement noise is itself reported as part of the robustness analysis (Se
 \toprule
 Component & Spec \\
 \midrule
-Board & Raspberry Pi 5, \ph{RAM} \\
-Cooling & \ph{active/passive} \\
-OS & \ph{OS version} \\
-Inference engine & llama.cpp \ph{commit/version} \\
-Model & TinyLlama-1.1B, GGUF \\
-Power measurement & \ph{device} \\
+Board & Raspberry Pi 5 Model B Rev 1.1, 8\,GB RAM \\
+Cooling & Active (PWM fan) \\
+OS & Debian GNU/Linux 13 (trixie), kernel 6.12.47+rpt-rpi-2712 \\
+Inference engine & llama.cpp commit \texttt{adb55e5} (built from source, Release) \\
+Model & TinyLlama-1.1B-Chat-v1.0, GGUF (Q8\_0 requant.\ source) \\
+Power measurement & On-board PMIC via \texttt{vcgencmd pmic\_read\_adc} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -320,19 +320,21 @@ Power measurement & \ph{device} \\
 \toprule
 Algorithm & Pop. & Iter. & Runs & Key parameters \\
 \midrule
-PSO & \tbd & \tbd & \tbd & $w$, $c_1$, $c_2$ \\
-GWO & \tbd & \tbd & \tbd & $a$ schedule \\
-DE  & \tbd & \tbd & \tbd & $\beta_{min}$, $\beta_{max}$, $p_{CR}$ \\
+PSO & 4 & 5 & 2 & $w{=}1.0$, $w_{\text{damp}}{=}0.99$, $c_1{=}c_2{=}2.0$ \\
+GWO & 4 & 5 & 2 & $a$ linear decay $2\to0$ \\
+DE  & 4 & 5 & 2 & $\beta_{min}{=}0.2$, $\beta_{max}{=}0.9$, $p_{CR}{=}0.1$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+Population/iterations are an adaptive floor (\texttt{MIN\_POP}=4, \texttt{MIN\_ITER}=5, i.e.\ a 20-evaluation minimum), scaled up only if the measured per-evaluation cost for a given variant would otherwise permit substantially more evaluations within a 12-minute-per-algorithm time box; both variants observed so far (Q4\_K\_M, Q2\_K) landed on this floor. $N_{\text{runs}}=2$ (reduced from the synthetic-validation protocol's 10, Section~\ref{sec:validation-results}) and all other values are unchanged library defaults, not per-variant tuned.
+
 \subsection{Baselines}
 
 \begin{itemize}
-  \item Vendor/manual default configuration (\ph{llama.cpp defaults}).
-  \item Grid search over the same Phase-2 space, evaluation-budget-matched---\textbf{implemented} (\texttt{src/baselines/grid\_search.py}) and already exercised on the Section~\ref{sec:validation-method} synthetic functions (Section~\ref{sec:baseline-rehearsal}); not yet run against the real Phase~2 objective (needs Pi).
+  \item Grid search over the same Phase-2 space, evaluation-budget-matched---\textbf{implemented} (\texttt{src/baselines/grid\_search.py}) and run against both the synthetic functions (Section~\ref{sec:baseline-rehearsal}) and the real Phase~2 objective (Section~\ref{sec:baseline-comparison-real}).
   \item Random search, evaluation-budget-matched---\textbf{implemented} (\texttt{src/baselines/random\_search.py}), same status as above.
+  \item A separate vendor/manual single-point default-configuration baseline was planned but not implemented---grid and random search (above) already probe the space including near-default regions, and were prioritized given the real-hardware time budget; listed here rather than silently dropped.
 \end{itemize}
 
 Including these baselines directly tests the claim---inherited from~\cite{ref11}'s framing of grid/random search in its introduction---that metaheuristics outperform naive search under an equal evaluation budget; this must not be assumed without a control. The synthetic-function rehearsal in Section~\ref{sec:baseline-rehearsal} already confirms this claim holds sharply on hard, high-dimensional, asymmetric problems before the real hardware experiment is run.

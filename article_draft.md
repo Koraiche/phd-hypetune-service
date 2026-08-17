@@ -172,9 +172,9 @@ Implementation notes (all in `src/phase2_search/`): PSO uses global-best form wi
 
 Unlike [11]'s objective function (a deterministic or lightly-stochastic cross-validation error), our fitness function is measured on physical hardware and is subject to:
 
-- **Thermal throttling:** consecutive high-load evaluations can raise SoC temperature and trigger frequency scaling. Mitigation: `[PLACEHOLDER: fixed cooldown interval between evaluations; monitor via vcgencmd measure_temp; discard/re-run evaluations above a temperature threshold]`. **Observed, not just anticipated:** during the Phase 1 sweep (2026-08-15), `vcgencmd get_throttled` reported `0xe0000` (frequency-capping, throttling, and soft-temperature-limit "has occurred" bits all set) after roughly 80 minutes of sustained perplexity computation, with SoC temperature peaking around 83°C. No cooldown/thermal-guard mitigation was implemented yet at the time of this run — the sweep was allowed to proceed regardless, on the reasoning that a first full data point was more valuable than delaying for tooling that doesn't exist yet, but this means later-evaluated quantization variants in that run may carry more thermal-throttling-induced measurement noise than earlier ones, a confound that must be reported alongside Section 5.1's results rather than papered over. Building the actual `thermal_guard.py` mitigation (still not implemented) becomes a stronger priority for Phase 2, where dozens to hundreds of back-to-back evaluations make compounding heat far more likely than Phase 1's 7 one-shot variant evaluations.
-- **OS/background jitter:** `[PLACEHOLDER: run with minimal background services; pin process priority; repeat each evaluation k times and use median]`.
-- **Energy measurement:** `[PLACEHOLDER: USB-C inline power meter / INA219 sensor on GPIO; measure average watts over the generation window, multiply by wall-clock time and divide by tokens generated to get joules/token]`.
+- **Thermal throttling:** consecutive high-load evaluations can raise SoC temperature and trigger frequency scaling. **Observed, not just anticipated:** during the Phase 1 sweep (2026-08-15), `vcgencmd get_throttled` reported `0xe0000` (frequency-capping, throttling, and soft-temperature-limit "has occurred" bits all set) after roughly 80 minutes of sustained perplexity computation, with SoC temperature peaking around 83°C; a repeat check during Phase 2 showed `0xe0008` at 84.5°C. No cooldown/thermal-guard mitigation was implemented for either Phase 1 or the real Phase 2 run — both were allowed to proceed regardless, on the reasoning that a real data point under realistic sustained-load conditions was more valuable than delaying for tooling that doesn't exist yet, but this means later-evaluated configurations within a long run may carry more thermal-throttling-induced measurement noise than earlier ones, a confound reported here rather than papered over. A `thermal_guard.py` mitigation (fixed cooldown interval between evaluations, discard/re-run above a temperature threshold) remains unbuilt; this is listed as a limitation (Section 6), not a solved problem.
+- **OS/background jitter:** no dedicated background-service minimization or process-priority pinning was implemented; the real Phase 2 run's per-evaluation cost (Section 5.3's `meta.yaml` figures, 32.9-59.9s per evaluation depending on variant) is a single measurement per configuration (`bench_repetitions=1` in `LlamaCppEvaluator`, not a median of repeats), so this noise source is not averaged out and is folded into the same "too few runs for confidence intervals" limitation as thermal noise (Section 6).
+- **Energy measurement: solved via the Pi 5's on-board PMIC, not external hardware.** The originally planned USB-C inline power meter or INA219 GPIO sensor was never needed — the Pi 5's power management IC exposes real per-rail voltage/current telemetry directly via `vcgencmd pmic_read_adc`, parsed by `src/measurement/power_logger.py::read_pmic_rails()`. Total system power is the sum of V×I across all reported rails (`total_power_watts()`); energy per token is that average power, sampled concurrently with the benchmark run (1.0s interval — reduced from an initial 0.2s after measurement showed the higher sampling rate added only ≈6% wall-clock overhead vs. bare execution, see Section 5.3's methodology note), multiplied by wall-clock generation time and divided by tokens generated. Validated by a standalone sanity test against a `sleep 3` command (energy≈20.75J, avg_power≈6.9W, peak≈8.0W, 9 samples — mechanically correct before being trusted on real inference workloads) before being wired into `run_bench_instrumented()`, which runs one benchmark subprocess with concurrent RSS-polling and power-polling threads rather than three separate model runs per evaluation.
 
 This measurement noise is itself reported as part of the robustness analysis (Section 5.4 boxplots), extending [11]'s robustness protocol (10 runtimes × 100 iterations) to explicitly account for a noise source that does not exist in synthetic-function or classical-ML validation.
 
@@ -184,32 +184,30 @@ This measurement noise is itself reported as part of the robustness analysis (Se
 
 ### 4.1 Hardware / software summary
 
-`[PLACEHOLDER TABLE — mirrors paper's Table 4]`
-
 | Component | Spec |
 |---|---|
-| Board | Raspberry Pi 5, `[RAM]` |
-| Cooling | `[active/passive]` |
-| OS | `[PLACEHOLDER]` |
-| Inference engine | llama.cpp `[commit/version]` |
-| Model | TinyLlama-1.1B, GGUF |
-| Power measurement | `[PLACEHOLDER device]` |
+| Board | Raspberry Pi 5 Model B Rev 1.1, 8GB RAM |
+| Cooling | Active (PWM fan) |
+| OS | Debian GNU/Linux 13 (trixie), kernel 6.12.47+rpt-rpi-2712 |
+| Inference engine | llama.cpp commit `adb55e5` (built from source, Release) |
+| Model | TinyLlama-1.1B-Chat-v1.0, GGUF (Q8_0 requantization source) |
+| Power measurement | On-board PMIC via `vcgencmd pmic_read_adc` |
 
 ### 4.2 Metaheuristic parameters
 
-`[PLACEHOLDER TABLE — analogous to [11] Table 4]`
-
 | Algorithm | Population | Iterations | Independent runs | Key parameters |
 |---|---|---|---|---|
-| PSO | `[ ]` | `[ ]` | `[ ]` | w, c1, c2 |
-| GWO | `[ ]` | `[ ]` | `[ ]` | a schedule |
-| DE | `[ ]` | `[ ]` | `[ ]` | beta_min, beta_max, pCR |
+| PSO | 4 | 5 | 2 | w=1.0, w_damp=0.99, c1=c2=2.0 |
+| GWO | 4 | 5 | 2 | a linear decay 2→0 |
+| DE | 4 | 5 | 2 | beta_min=0.2, beta_max=0.9, pCR=0.1 |
+
+Population/iterations are an adaptive floor (`MIN_POP=4`, `MIN_ITER=5`, i.e. a 20-evaluation minimum), scaled up only if the measured per-evaluation cost for a given variant would otherwise permit substantially more evaluations within a 12-minute-per-algorithm time box; both variants observed so far (Q4_K_M, Q2_K) landed on this floor. N_runs=2 (reduced from the synthetic-validation protocol's 10, Section 5.2) and all other values are unchanged library defaults, not per-variant tuned.
 
 ### 4.3 Baselines
 
-- Vendor/manual default configuration (`[PLACEHOLDER: llama.cpp defaults]`)
-- Grid search over the same Phase-2 space, evaluation-budget-matched — **implemented** (`src/baselines/grid_search.py`) and already exercised on the Section 3.8 synthetic functions (Section 5.2.1); not yet run against the real Phase 2 objective (needs Pi).
+- Grid search over the same Phase-2 space, evaluation-budget-matched — **implemented** (`src/baselines/grid_search.py`) and run against both the synthetic functions (Section 5.2.1) and the real Phase 2 objective (Section 5.6).
 - Random search, evaluation-budget-matched — **implemented** (`src/baselines/random_search.py`), same status as above.
+- A separate vendor/manual single-point default-configuration baseline was planned but not implemented — grid and random search (above) already probe the space including near-default regions, and were prioritized given the real-hardware time budget; listed here rather than silently dropped.
 
 Including these baselines directly tests the claim — inherited from [11]'s framing of grid/random search in its introduction — that metaheuristics outperform naive search under an equal evaluation budget; this must not be assumed without a control. The synthetic-function rehearsal in Section 5.2.1 already confirms this claim holds sharply on hard, high-dimensional, asymmetric problems before the real hardware experiment is run — see that section for why grid search in particular should not be trusted as a serious baseline once Phase 2's parameter count grows past a couple of dimensions.
 
@@ -217,7 +215,7 @@ Including these baselines directly tests the claim — inherited from [11]'s fra
 
 ## 5. Results and Discussion
 
-*(All content in this section is placeholder scaffolding — replace with real numbers, figures, and analysis once `hyptune/` produces experimental output. Keep the subsection structure; it mirrors [11]'s results section 1:1 for narrative consistency.)*
+*(Sections 5.1-5.4, 5.5-5.6 contain real Raspberry Pi 5 results for Q4_K_M and Q2_K (2 of 3 priority variants); Q8_0 is running as of this draft. Sections 5.2, 5.2.1, 5.2.2 contain real results from synthetic functions / a mock evaluator, explicitly not hardware data. Subsection structure mirrors [11]'s results section 1:1 for narrative consistency.)*
 
 ### 5.1 Phase 1: quantization variant impact
 
