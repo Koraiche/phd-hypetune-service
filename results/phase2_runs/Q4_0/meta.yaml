@@ -1,0 +1,20 @@
+budget: 32
+grid_realized_evals: 16
+iterations: 8
+n_runs: 2
+normalization_ranges:
+  energy:
+  - 1.061250715972144
+  - 2.7201124719830934
+  latency:
+  - 48.419955180552684
+  - 58.678527866051475
+  memory:
+  - 1163.609375
+  - 1196.453125
+  quality:
+  - -22.7785
+  - -22.3364
+per_eval_cost_s: 20.69500027674985
+population: 4
+variant: Q4_0
