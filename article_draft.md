@@ -746,7 +746,7 @@ Code, configuration, and all raw measurement data (Phase 1 sweep results, Phase 
 
 ## References
 
-*(Real, verifiable sources are numbered and used as-is. Entries marked `[VERIFY]` must be checked against the actual bibliographic record — exact venue, year, page numbers — before submission. Do not submit this reference list unverified.)*
+*(All 20 entries below are real, located sources with author lists, venues, and page numbers verified via web search across three passes — 2026-08-01, 2026-08-17, 2026-08-18. This is not a substitute for a full database-backed literature review, Google Scholar/Semantic Scholar citation-graph traversal — see Section 6.)*
 
 [1] Zhang, P., Zeng, G., Wang, T., & Lu, W. (2024). TinyLlama: An Open-Source Small Language Model. *arXiv:2401.02385*. (Confirmed 2026-08-17 via web search: arXiv preprint only, no separate peer-reviewed proceedings/journal venue located.)
 
