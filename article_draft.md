@@ -1,6 +1,6 @@
 # Metaheuristic Co-Optimization of Compression and Runtime Configuration for Embedded LLM Inference: A Case Study on TinyLlama and Raspberry Pi 5
 
-**Status: DRAFT v0.8 — Phase 1 and Phase 2 both fully complete: all 7 of 7 Pareto-retained quantization variants have real Raspberry Pi 5 hardware-in-the-loop Phase 2 results.** A systematic cross-variant reconciliation check (Section 5.5) uncovered the optimizer's curse as a general, pervasive property of this dataset, materially revising earlier drafts' Q2_K/Q3_K_M/Q4_K_M claims and showing that naive baselines outright beat every metaheuristic on 2 of 7 variants — see Section 6 (Limitations) and Section 5.5/5.7 for the full account. Abstract, Conclusion, Funding, CRediT, and Conflict of Interest are filled with real results or clearly-marked defaults (Funding/CRediT/COI still need author verification, since these are facts about real people this draft has no way to know — see Section 6). A second literature-search pass (2026-08-18) located DeepQGHO [20], the closest prior art found to date on the physical-hardware + joint quantization/hyperparameter axis, and stress-tested the novelty claim against it (Section 2.4). Remaining open item: a fuller database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal) beyond these targeted web-search passes.
+**Status: DRAFT v0.9 — Phase 1 and Phase 2 both fully complete: all 7 of 7 Pareto-retained quantization variants have real Raspberry Pi 5 hardware-in-the-loop Phase 2 results.** A systematic cross-variant reconciliation check (Section 5.5) uncovered the optimizer's curse as a general, pervasive property of this dataset, materially revising earlier drafts' Q2_K/Q3_K_M/Q4_K_M claims and showing that naive baselines outright beat every metaheuristic on 2 of 7 variants — see Section 6 (Limitations) and Section 5.5/5.7 for the full account. Abstract and Conclusion are filled with real results. Funding, CRediT, and Conflict of Interest sections have been removed from this draft (facts about real people that this draft has no way to know) — add them directly before submission. A second literature-search pass (2026-08-18) located DeepQGHO [20], the closest prior art found to date on the physical-hardware + joint quantization/hyperparameter axis, and stress-tested the novelty claim against it (Section 2.4). Remaining open item: a fuller database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal) beyond these targeted web-search passes.
 
 ---
 
@@ -706,37 +706,6 @@ Future work, in priority order suggested by the limitations already surfaced in 
 - Hybrid metaheuristics (e.g., PSO-DE hybrids), and joint search including model-level compression beyond quantization (structured pruning, LoRA-merged distillation) as an additional discrete Phase 1 axis.
 
 ---
-
-## Funding
-
-`[Default statement below — no external funding source is recorded anywhere in this project's configuration, code, or correspondence, and none was mentioned during this work. Authors: please verify and replace before submission if a real funding source exists (institutional, grant, or otherwise); this is a default in the absence of contrary information, not a confirmed fact.]`
-
-This research received no specific grant from any funding agency in the public, commercial, or not-for-profit sectors.
-
-## Author Contributions (CRediT)
-
-`[Default assignment below, following the conventional PhD-candidate-plus-supervisors pattern implied by the author affiliations (Section 4.1's author block): first author performing the hands-on technical work, co-authors in a supervisory/advisory role at the same or an affiliated laboratory. This is a default, not a verified fact — all three authors should review and correct it before submission, since the actual division of labor (e.g., whether Rachid Dehbi or Amine Dehbi contributed directly to code, analysis, or writing beyond supervision) is not something this draft has any basis to know.]`
-
-| Role | F. Koraiche | R. Dehbi | A. Dehbi |
-|---|---|---|---|
-| Conceptualization | ✓ | ✓ | |
-| Methodology | ✓ | | |
-| Software | ✓ | | |
-| Validation | ✓ | | |
-| Formal analysis | ✓ | | |
-| Investigation | ✓ | | |
-| Data curation | ✓ | | |
-| Writing — original draft | ✓ | | |
-| Writing — review & editing | | ✓ | ✓ |
-| Visualization | ✓ | | |
-| Supervision | | ✓ | ✓ |
-| Project administration | | ✓ | |
-
-## Conflict of Interest
-
-`[Default statement below — nothing in this project indicates a conflict (no commercial sponsor, no equity/consulting relationship on record). Authors: please verify before submission.]`
-
-The authors declare no known competing financial interests or personal relationships that could have influenced the work reported in this paper.
 
 ## Data Availability
 

@@ -78,7 +78,7 @@ Deploying large language models (LLMs) on resource-constrained edge devices requ
 Edge AI, Embedded large language models, Hyperparameter tuning, Metaheuristic optimization, Model compression, Quantization, TinyLlama.
 \end{IEEEkeywords}
 
-\status{DRAFT v0.8 --- Phase 1 and Phase 2 both fully complete: all 7 of 7 Pareto-retained quantization variants have real Raspberry Pi 5 hardware-in-the-loop Phase 2 results. A systematic cross-variant reconciliation check (Section~\ref{sec:best-configs}) uncovered the optimizer's curse as a general, pervasive property of this dataset, materially revising earlier drafts' Q2\_K/Q3\_K\_M/Q4\_K\_M claims and showing that naive baselines outright beat every metaheuristic on 2 of 7 variants---see Section~\ref{sec:limitations} and Section~\ref{sec:best-configs}/\ref{sec:discussion} for the full account. Abstract, Conclusion, Funding, CRediT, and Conflict of Interest are filled with real results or clearly-marked defaults (Funding/CRediT/COI still need author verification, since these are facts about real people this draft has no way to know---see Section~\ref{sec:limitations}). A second literature-search pass (2026-08-18) located DeepQGHO~\cite{ref20}, the closest prior art found to date on the physical-hardware + joint quantization/hyperparameter axis, and stress-tested the novelty claim against it (Section~\ref{sec:gap}). Remaining open item: a fuller database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal) beyond these targeted web-search passes.}
+\status{DRAFT v0.9 --- Phase 1 and Phase 2 both fully complete: all 7 of 7 Pareto-retained quantization variants have real Raspberry Pi 5 hardware-in-the-loop Phase 2 results. A systematic cross-variant reconciliation check (Section~\ref{sec:best-configs}) uncovered the optimizer's curse as a general, pervasive property of this dataset, materially revising earlier drafts' Q2\_K/Q3\_K\_M/Q4\_K\_M claims and showing that naive baselines outright beat every metaheuristic on 2 of 7 variants---see Section~\ref{sec:limitations} and Section~\ref{sec:best-configs}/\ref{sec:discussion} for the full account. Abstract and Conclusion are filled with real results. Funding, CRediT, and Conflict of Interest sections have been removed from this draft (facts about real people that this draft has no way to know)---add them directly before submission. A second literature-search pass (2026-08-18) located DeepQGHO~\cite{ref20}, the closest prior art found to date on the physical-hardware + joint quantization/hyperparameter axis, and stress-tested the novelty claim against it (Section~\ref{sec:gap}). Remaining open item: a fuller database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal) beyond these targeted web-search passes.}
 
 \section{Introduction}
 \label{sec:introduction}
@@ -1315,44 +1315,6 @@ Future work, in priority order suggested by the limitations already surfaced in 
   \item Extend to other edge platforms (Jetson Orin Nano, mobile SoCs) and other small models (Phi-3-mini, Qwen2.5-0.5B/1.5B, Gemma-2B) to test whether the variant-to-variant instability found here on a single model/board pair is specific to this hardware or a more general property of hardware-in-the-loop search under tight evaluation budgets.
   \item Hybrid metaheuristics (e.g., PSO-DE hybrids), and joint search including model-level compression beyond quantization (structured pruning, LoRA-merged distillation) as an additional discrete Phase~1 axis.
 \end{itemize}
-
-\section*{Funding}
-\status{Default statement below---no external funding source is recorded anywhere in this project's configuration, code, or correspondence, and none was mentioned during this work. \textbf{Authors: please verify and replace before submission if a real funding source exists} (institutional, grant, or otherwise); this is a default in the absence of contrary information, not a confirmed fact.}
-
-This research received no specific grant from any funding agency in the public, commercial, or not-for-profit sectors.
-
-\section*{Author Contributions (CRediT)}
-\status{Default assignment below, following the conventional PhD-candidate-plus-supervisors pattern implied by the author affiliations (Section~\ref{sec:setup}'s author block): first author performing the hands-on technical work, co-authors in a supervisory/advisory role at the same or an affiliated laboratory. \textbf{This is a default, not a verified fact---all three authors should review and correct it before submission}, since the actual division of labor (e.g., whether Rachid Dehbi or Amine Dehbi contributed directly to code, analysis, or writing beyond supervision) is not something this draft has any basis to know.}
-
-\begin{table}[h]
-\caption{CRediT author statement (default assignment---to be verified by all authors)}
-\label{tab:credit}
-\centering
-\footnotesize
-\begin{tabular}{@{}p{2.6cm}ccc@{}}
-\toprule
-Role & F. Koraiche & R. Dehbi & A. Dehbi \\
-\midrule
-Conceptualization & \checkmark & \checkmark & \\
-Methodology & \checkmark & & \\
-Software & \checkmark & & \\
-Validation & \checkmark & & \\
-Formal analysis & \checkmark & & \\
-Investigation & \checkmark & & \\
-Data curation & \checkmark & & \\
-Writing---original draft & \checkmark & & \\
-Writing---review \& editing & & \checkmark & \checkmark \\
-Visualization & \checkmark & & \\
-Supervision & & \checkmark & \checkmark \\
-Project administration & & \checkmark & \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\section*{Conflict of Interest}
-\status{Default statement below---nothing in this project indicates a conflict (no commercial sponsor, no equity/consulting relationship on record). \textbf{Authors: please verify before submission.}}
-
-The authors declare no known competing financial interests or personal relationships that could have influenced the work reported in this paper.
 
 \section*{Data Availability}
 Code, configuration, and all raw measurement data (Phase~1 sweep results, Phase~2 convergence/robustness/best-configuration CSVs, and figures) referenced in this paper are maintained at \url{https://github.com/Koraiche/phd-hypetune-service}, currently a private repository (confirmed 2026-08-17: returns 404 to unauthenticated access) that will be made public upon publication. The WikiText-2 corpus used for perplexity measurement (Section~\ref{sec:setup}) is a standard, separately-licensed public dataset and is not redistributed in this repository.
