@@ -15,23 +15,6 @@
 
 \graphicspath{{../results/figures/}}
 
-% ---------------------------------------------------------------------------
-% Draft-status helper macros. These make incomplete parts of the manuscript
-% visually obvious when compiled, and are meant to be removed (search for
-% \ph{, \verifynote{, \status{) before final submission.
-% ---------------------------------------------------------------------------
-\newcommand{\ph}[1]{\textcolor{red}{[PLACEHOLDER: #1]}}
-\newcommand{\tbd}{\textcolor{red}{TBD}}
-\newcommand{\verifynote}[1]{\textcolor{orange!85!black}{[VERIFY: #1]}}
-\newcommand{\status}[1]{%
-  \par\noindent\colorbox{blue!8}{%
-    \parbox{\dimexpr\linewidth-2\fboxsep}{\small\textcolor{blue!40!black}{\textbf{Status:} #1}}%
-  }\par\vspace{4pt}%
-}
-\newcommand{\todofig}[1]{%
-  \fbox{\parbox{0.85\linewidth}{\centering\vspace{1.2cm}\ph{#1}\vspace{1.2cm}}}%
-}
-
 \begin{document}
 
 \title{Metaheuristic Co-Optimization of Compression and Runtime Configuration\\
@@ -66,8 +49,6 @@ Faculty of Science A\"{i}n Chock, Casablanca, Morocco\\
 \end{minipage}
 }
 
-\markboth{Draft, \today}{}
-
 \maketitle
 
 \begin{abstract}
@@ -78,7 +59,6 @@ Deploying large language models (LLMs) on resource-constrained edge devices requ
 Edge AI, Embedded large language models, Hyperparameter tuning, Metaheuristic optimization, Model compression, Quantization, TinyLlama.
 \end{IEEEkeywords}
 
-\status{DRAFT v0.9 --- Phase 1 and Phase 2 both fully complete: all 7 of 7 Pareto-retained quantization variants have real Raspberry Pi 5 hardware-in-the-loop Phase 2 results. A systematic cross-variant reconciliation check (Section~\ref{sec:best-configs}) uncovered the optimizer's curse as a general, pervasive property of this dataset, materially revising earlier drafts' Q2\_K/Q3\_K\_M/Q4\_K\_M claims and showing that naive baselines outright beat every metaheuristic on 2 of 7 variants---see Section~\ref{sec:limitations} and Section~\ref{sec:best-configs}/\ref{sec:discussion} for the full account. Abstract and Conclusion are filled with real results. Funding, CRediT, and Conflict of Interest sections have been removed from this draft (facts about real people that this draft has no way to know)---add them directly before submission. A second literature-search pass (2026-08-18) located DeepQGHO~\cite{ref20}, the closest prior art found to date on the physical-hardware + joint quantization/hyperparameter axis, and stress-tested the novelty claim against it (Section~\ref{sec:gap}). Remaining open item: a fuller database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal) beyond these targeted web-search passes.}
 
 \section{Introduction}
 \label{sec:introduction}
@@ -104,7 +84,6 @@ The remainder of this paper is organized as follows. Section~\ref{sec:related} r
 \section{Related Work}
 \label{sec:related}
 
-\status{A first-pass web literature check has been done (2026-08-01) to stress-test the Section~\ref{sec:gap} novelty claim before the paper is built around it, followed by a second targeted pass (2026-08-17) that verified most individual citation details and filled two previously-unresolved citation gaps (\cite{ref17}, \cite{ref18}). Findings below are from search-engine/abstract-level review, not full close reading of every cited paper---treat citations here as located and worth citing, not yet verified line-by-line against the source PDFs. A proper library-database pass (Google Scholar/Semantic Scholar with citation graphs) is still needed before submission.}
 
 \subsection{LLM Compression for Edge Deployment}
 Post-training quantization (GPTQ~\cite{ref4}, AWQ~\cite{ref5}, LLM.int8()~\cite{ref6}), weight pruning, and mixed-precision schemes (SqueezeLLM~\cite{ref7}) reduce model size and memory bandwidth at some quality cost. TinyLlama~\cite{ref1} sits at a different point in this landscape than the methods above: rather than compressing an existing large model, it is trained from scratch at a small (1.1B) parameter count specifically to be efficient at inference time, making it a natural target for the runtime-side compression methods this paper studies rather than a competitor to them. The GGUF quantization families used in this paper (Q2\_K through Q8\_0, Section~\ref{sec:phase1}) are llama.cpp's own post-training weight-quantization scheme---k-quants (the \texttt{\_K} variants) use per-block scale/mixed-precision packing conceptually similar to the mixed-precision idea behind SqueezeLLM~\cite{ref7}, but are integer-only, calibration-free, and designed for CPU inference rather than GPU-optimized kernels, which is precisely why they are the compression axis explored here rather than GPTQ/AWQ (both designed around GPU dequantization kernels not exercised in this paper's target runtime).
@@ -191,7 +170,7 @@ Selection rule: retain all variants that are not dominated on the quality/memory
 \subsection{Phase 2: Runtime Hyperparameter Search Space}
 \label{sec:phase2-space}
 
-\status{The continuous$\leftrightarrow$discrete/categorical encoding layer is implemented and unit-tested (\texttt{src/phase2\_search/parameter\_space.py})---PSO/GWO/DE search a plain bounded box in $\mathbb{R}^d$; \texttt{ParameterSpace.decode(x)} maps that vector to the actual integer/categorical runtime config (rounding integers, floor-and-clip for categorical indices) so the optimizers never need to know the space is anything but continuous.}
+The continuous$\leftrightarrow$discrete/categorical encoding layer (\texttt{src/phase2\_search/parameter\_space.py}) lets PSO/GWO/DE search a plain bounded box in $\mathbb{R}^d$; \texttt{ParameterSpace.decode(x)} maps that vector to the actual integer/categorical runtime config (rounding integers, floor-and-clip for categorical indices) so the optimizers never need to know the space is anything but continuous.
 
 For each searched quantization variant, the metaheuristics search over a 4-dimensional mixed integer/categorical vector (Table~\ref{tab:runtime-params}), \textbf{confirmed against the real llama.cpp build and its exposed CLI flags} (\texttt{src/phase2\_search/run\_real\_phase2.py::build\_space}).
 
@@ -217,7 +196,7 @@ Context length is realized via \texttt{llama-bench}'s \texttt{-p} (prompt-token 
 \subsection{Objective Function}
 \label{sec:objective}
 
-\status{Implemented and unit-tested (\texttt{src/phase2\_search/objective.py}, 4 tests covering normalization, feasibility rejection, and weighted-sum correctness---see \texttt{tests/test\_objective.py}), against a mocked evaluator---see Section~\ref{sec:mock-rehearsal} for the end-to-end plumbing rehearsal this enabled. The real evaluator (calling \texttt{src/common/llama\_cpp\_runner.py} against actual hardware) is not implemented; only the \texttt{Evaluator} interface it must satisfy is fixed.}
+The objective function (\texttt{src/phase2\_search/objective.py}, unit-tested for normalization, feasibility rejection, and weighted-sum correctness) is implemented against a common \texttt{Evaluator} interface, satisfied by \texttt{LlamaCppEvaluator} (\texttt{src/phase2\_search/llama\_cpp\_evaluator.py}), which drives \texttt{src/common/llama\_cpp\_runner.py} against the actual Raspberry Pi~5 hardware and produced every real Phase~2 result reported in Section~\ref{sec:results}.
 
 We minimize a scalarized, constrained multi-objective function:
 \begin{equation}
@@ -247,7 +226,7 @@ We use the same three metaheuristics as~\cite{ref11} for direct comparability: P
 \subsection{Metaheuristic Validation on Synthetic Functions}
 \label{sec:validation-method}
 
-\status{Implemented and run (\texttt{src/phase2\_search/\{pso,gwo,de\}.py}, \texttt{src/validation/}). This step has no hardware dependency and is complete independent of Raspberry Pi access; see Section~\ref{sec:validation-results} for results.}
+Before being trusted on the real, hardware-measured Phase~2 objective, PSO, GWO, and DE (\texttt{src/phase2\_search/\{pso,gwo,de\}.py}) are each validated against known synthetic benchmark functions with a deterministic, verifiable global optimum; results are in Section~\ref{sec:validation-results}.
 
 Before Phase~2, PSO, GWO, and DE are validated on three closed-form benchmark functions, following~\cite{ref11}'s validation protocol, to confirm each optimizer converges correctly under our chosen implementation and parameter settings before trusting it on the real (noisy, hardware-measured) objective. Table~\ref{tab:validation-functions} gives the same at-a-glance summary that Table~3 of~\cite{ref11} does---representation, range, and global minimum for each function---generated directly from this project's own function implementations (\texttt{synthetic\_functions.py}, plotted by \texttt{plot\_function\_representations.py}) rather than redrawn by hand, so the plotted surface is guaranteed to match what the optimizers actually search. The surface plots use a rainbow (\texttt{jet}) colormap to match~\cite{ref11}'s own figure/table visual style---a deliberate, scoped exception to this project's otherwise-consistent single-hue sequential palette used in every other figure in this paper.
 
@@ -345,12 +324,11 @@ Including these baselines directly tests the claim---inherited from~\cite{ref11}
 \section{Results and Discussion}
 \label{sec:results}
 
-\status{Sections~\ref{sec:phase1-results}, \ref{sec:phase2-convergence-results}, \ref{sec:robustness}, \ref{sec:best-configs}, and \ref{sec:baseline-comparison-real} contain real Raspberry Pi~5 results for all 7 of 7 Pareto-retained variants (Q2\_K, Q3\_K\_M, Q4\_0, Q4\_K\_M, Q5\_K\_M, Q6\_K, Q8\_0)---Phase~1 and Phase~2 are both fully complete. Sections~\ref{sec:validation-results}, \ref{sec:baseline-rehearsal}, and \ref{sec:mock-rehearsal} contain real results (synthetic functions / mock evaluator, explicitly not hardware data). The subsection structure mirrors~\cite{ref11}'s results section for narrative consistency.}
 
 \subsection{Phase 1: Quantization Variant Impact}
 \label{sec:phase1-results}
 
-\status{Real results below (\texttt{python src/phase1\_quant\_sweep.py}, run on the Raspberry Pi~5 target 2026-08-15/16, threads=4, wikitext-2-raw-v1 full test corpus at ctx=512, \texttt{llama-bench} repetitions=3). Full data: \texttt{results/phase1\_table.csv}. Model load time was not instrumented in this run (\texttt{llama\_cpp\_runner.py} doesn't currently isolate it from the bench subprocess's total wall time), a gap disclosed in Section~\ref{sec:limitations} rather than fabricated here.}
+Results below come from \texttt{src/phase1\_quant\_sweep.py}, run on the Raspberry Pi~5 target (threads=4, WikiText-2-raw-v1 full test corpus at ctx=512, \texttt{llama-bench} repetitions=3); full data is in \texttt{results/phase1\_table.csv}. Model load time was not instrumented in this run (\texttt{llama\_cpp\_runner.py} does not isolate it from the bench subprocess's total wall time), a gap disclosed in Section~\ref{sec:limitations}.
 
 \begin{table}[t]
 \caption{Phase 1 quantization variant impact (real, Pi~5)}
@@ -376,12 +354,12 @@ Base model for this sweep is Q8\_0, not F16 (Section~\ref{sec:setup}'s documente
 
 \textbf{Pareto outcome---all 7 variants retained, and that is itself the finding.} Running the Pareto filter (\texttt{src/common/pareto.py}) over (quality, tokens/s, peak RSS) returned all 7 variants as non-dominated: \texttt{results/phase1\_retained.yaml} lists all 7 in full. This is not a bug or a trivial outcome---it happens because quality, speed, and memory trade off \emph{perfectly monotonically} with quantization level: every step from Q2\_K toward Q8\_0 strictly improves perplexity (28.81$\to$19.97) while strictly increasing memory (495$\to$2181\,MB) and strictly decreasing generation throughput (25.6$\to$8.5\,tok/s), with zero exceptions across all 7 points. A variant would only be Pareto-dominated if some other variant beat it on every axis simultaneously---impossible here since improving on any one axis always costs on the other two. Two things are worth noting about the \emph{shape} of the trade-off: (1)~the marginal quality return shrinks sharply past Q4\_K\_M---Q4\_0$\to$Q4\_K\_M$\to$Q5\_K\_M$\to$Q6\_K$\to$Q8\_0 only improves perplexity from 20.62 to 19.97 (a 3.2\% relative gain) while RSS nearly doubles (1198$\to$2181\,MB) and speed drops by more than half (18.1$\to$8.5\,tok/s)---a classically poor trade past that point for most deployment goals; (2)~Q4\_0 and Q4\_K\_M are close in quality (20.62 vs.\ 20.45) and size (608 vs.\ 638\,MB) but Q4\_K\_M is measurably slower (18.06 vs.\ 17.02\,tok/s) with $\approx$5\% higher peak RSS for a modest quality edge---exactly the kind of nuance a scalar ``pick the best'' rule would hide.
 
-Given the full retained set is impractically large to run the real hardware-in-the-loop Phase~2 search across all~7 (each evaluation costs real seconds, not milliseconds---Section~\ref{sec:cost-argument}, now empirically confirmed), Phase~2 runs on a deliberately chosen 3-variant subset spanning the frontier---Q2\_K (fast/small extreme), Q4\_K\_M (the community-standard ``K-quant sweet spot,'' and the point where marginal quality returns visibly start shrinking per the analysis above), and Q8\_0 (quality extreme)---documented explicitly in \texttt{run\_real\_phase2.py} as \texttt{PHASE2\_VARIANT\_SUBSET}, not silently narrowed from the full retained list. See Section~\ref{sec:phase2-convergence-results} onward.
+Because each real Phase~2 evaluation costs real seconds, not milliseconds (Section~\ref{sec:cost-argument}, now empirically confirmed), running the search across all 7 retained variants in a single overnight session was not feasible from the outset. Phase~2 therefore began on a 3-variant subset spanning the frontier---Q2\_K (fast/small extreme), Q4\_K\_M (the community-standard ``K-quant sweet spot,'' and the point where marginal quality returns visibly start shrinking per the analysis above), and Q8\_0 (quality extreme)---documented explicitly in \texttt{run\_real\_phase2.py} as \texttt{PHASE2\_VARIANT\_SUBSET}, and was extended to the remaining 4 variants (Q3\_K\_M, Q4\_0, Q5\_K\_M, Q6\_K) once the pipeline proved stable across an unattended overnight run (Section~\ref{sec:limitations}). All 7 variants are complete; see Section~\ref{sec:phase2-convergence-results} onward.
 
 \subsection{Metaheuristic Validation on Synthetic Functions}
 \label{sec:validation-results}
 
-\status{Real results below (\texttt{python src/validation/run\_validation.py}, population 20, 200 iterations, 10 independent runs per algorithm per function, seeds 42--51). Figures at \texttt{results/figures/\{convergence,boxplot\}\_*.png}, raw data at \texttt{results/validation/}.}
+Results below come from \texttt{src/validation/run\_validation.py} (population~20, 200 iterations, 10 independent runs per algorithm per function, seeds 42--51); figures are at \texttt{results/figures/\{convergence,boxplot\}\_*.png}, raw data at \texttt{results/validation/}.
 
 \begin{table}[t]
 \caption{Metaheuristic validation results (real, 10 runs each)}
@@ -452,12 +430,12 @@ All three optimizers reach values effectively indistinguishable from each functi
 \label{fig:boxplot-synthetic}
 \end{figure}
 
-One implication worth carrying into Phase~2 design: if GWO's premature-convergence pattern on asymmetric, higher-dispersion problems reproduces on the real runtime-configuration objective (Section~\ref{sec:objective}), GWO may need either a larger population, a modified exploration schedule, or simply weaker weight in the final algorithm comparison---this is a hypothesis to check against Phase~2 data, not yet a conclusion.
+One implication carried into the Phase~2 analysis: GWO's premature-convergence pattern on asymmetric, higher-dispersion problems here does reproduce on the real runtime-configuration objective for some variants (notably Q4\_K\_M) but not others (Q2\_K, Q8\_0 show GWO converging \emph{later}, not prematurely)---see Section~\ref{sec:phase2-convergence-results} for the full, variant-by-variant account rather than a single verdict.
 
 \subsubsection{Baseline Comparison Rehearsal (Synthetic Functions)}
 \label{sec:baseline-rehearsal}
 
-\status{Implemented and run (\texttt{src/baselines/}: \texttt{grid\_search.py}, \texttt{random\_search.py}, \texttt{compare\_baselines.py}).} This is a \textbf{methodology rehearsal, not the real Section~\ref{sec:baseline-comparison-real} result}---the actual claim the paper needs to support is that metaheuristics beat naive search on the \emph{real hardware-measured objective}, which requires Phase~1/2 data from the Pi. What this rehearsal does establish now, honestly and in advance: the baseline implementations are correct, and the paper's introduction claim (``grid search becomes computationally expensive for numerous hyperparameters,'' Section~\ref{sec:related}) is not just a citation---it reproduces empirically, sharply, on these functions.
+This rehearsal (\texttt{src/baselines/}: \texttt{grid\_search.py}, \texttt{random\_search.py}, \texttt{compare\_baselines.py}) is a methodology check on synthetic functions, distinct from the real Section~\ref{sec:baseline-comparison-real} result on the hardware-measured objective. It establishes that the baseline implementations are correct, and that the paper's introduction claim (``grid search becomes computationally expensive for numerous hyperparameters,'' Section~\ref{sec:related}) is not just a citation---it reproduces empirically, sharply, on these functions.
 
 All five methods (PSO, GWO, DE, random search, grid search) were run at a matched evaluation budget of 4{,}000 ($=$ population 20 $\times$ iterations 200, identical to Section~\ref{sec:validation-results}'s protocol), 10 independent runs for the stochastic methods. Grid search cannot spend a budget exactly---a shared per-axis resolution forces its realized evaluation count down to $\lfloor \mathrm{budget}^{1/\dim}\rfloor^{\dim}$, reported explicitly rather than padded (Table~\ref{tab:baseline-comparison}).
 
@@ -497,31 +475,6 @@ The Sphere result is the sharpest illustration: at dim=10, a shared-resolution g
 \caption{Baseline comparison rehearsal: PSO/GWO/DE vs.\ grid/random search at matched evaluation budget on the synthetic validation functions.}
 \label{fig:baseline-comparison-synthetic}
 \end{figure}
-
-\subsubsection{Phase 2 Plumbing Rehearsal (Mock Evaluator --- NOT Real Hardware Data)}
-\label{sec:mock-rehearsal}
-
-\status{Implemented and run (\texttt{src/phase2\_search/}: \texttt{parameter\_space.py}, \texttt{objective.py}, \texttt{mock\_evaluator.py}, \texttt{run\_mock\_rehearsal.py}).} This is the narrowest and most important caveat in this draft, stated as plainly as possible: \textbf{every number in this subsection comes from a made-up, hand-specified cost surface in \texttt{mock\_evaluator.py}}---diminishing-returns thread speedup, KV-cache memory roughly linear in context length, a quality penalty for lossy quantized KV cache---\textbf{none of it measured from a real TinyLlama run or real Pi hardware.} Its only purpose is to prove the Phase~2 plumbing (parameter encode/decode, feasibility rejection, normalization calibration, PSO/GWO/DE wiring to a 4-dimensional mixed integer/categorical objective) works correctly end to end before the same code is pointed at a real \texttt{Evaluator} backed by \texttt{llama\_cpp\_runner.py} and actual hardware. \textbf{This subsection must be deleted or fully replaced once real Phase~1/2 data exists---it is scaffolding, not a finding.}
-
-Search space: $\mathrm{threads}\in[1,4]$ (int), $\mathrm{n\_batch}\in[32,512]$ (int), $\mathrm{n\_ctx}\in[512,4096]$ (int), $\mathrm{kv\_cache\_type}\in\{\mathrm{f16},\mathrm{q8\_0},\mathrm{q4\_0}\}$ (categorical)---the mechanically-grounded subset of Section~\ref{sec:phase2-space} (temperature/top-p are omitted from this rehearsal since the mock model has no task-accuracy notion for them to affect). Normalization ranges were calibrated by 300 random feasible samples (Section~\ref{sec:objective}'s calibration procedure); the RAM ceiling was set to a toy 900~MB (not the real Pi~5 limit) specifically to create a genuine feasible/infeasible boundary inside the search space for the rejection logic to navigate. PSO, GWO, and DE (population 20, 100 iterations, 10 runs) all converged to the identical configuration: $\mathrm{threads}=4$, $\mathrm{n\_batch}=32$, $\mathrm{n\_ctx}=512$, $\mathrm{kv\_cache\_type}=\mathrm{f16}$ (cost 0.0226), which a brute-force grid scan over the same 4-dimensional space confirms is the true global optimum of the mock surface.
-
-Two things are worth being honest about in this result. First, positively: the full pipeline---encode/decode, calibration, feasibility rejection, and all three optimizers---is verified correct, because the found solution matches a brute-force ground truth. Second, a real limitation of the mock model rather than of the search machinery: this particular toy cost surface happens to have a single corner that simultaneously minimizes latency, maximizes quality, and minimizes memory and energy---i.e., no genuine multi-objective trade-off exists in this instance, so the rehearsal does not exercise the interesting case (Pareto tension between competing objectives) that the real hardware objective is expected to have.
-
-\begin{figure}[t]
-\centering
-\begin{subfigure}[b]{0.48\linewidth}
-  \includegraphics[width=\linewidth]{mock_phase2_convergence.png}
-  \caption{Convergence}
-\end{subfigure}\hfill
-\begin{subfigure}[b]{0.48\linewidth}
-  \includegraphics[width=\linewidth]{mock_phase2_boxplot.png}
-  \caption{Robustness}
-\end{subfigure}
-\caption{Mock Phase 2 rehearsal (synthetic evaluator --- NOT real hardware data).}
-\label{fig:mock-rehearsal}
-\end{figure}
-
-\status{Real hardware run complete on the Pi~5 for all 7 of 7 Pareto-retained variants. Phase 1 (Section~\ref{sec:phase1-results}) found all 7 quantization variants Pareto-nondominated, so running the real Phase 2 search on all~7 was not originally planned to fit within a single-night compute budget at real (tens-of-seconds-per-evaluation) hardware cost. Three variants spanning the retained frontier were selected first --- \textbf{Q4\_K\_M} (community-default ``sweet spot''), \textbf{Q2\_K} (fast/small extreme), \textbf{Q8\_0} (quality extreme) --- processed in that priority order. The Pi crashed (likely thermal, Section~\ref{sec:limitations}) shortly after Q8\_0 finished; the run's final output files survived on disk and were pulled before the article was updated. Once a thermal cooldown safety check was added and the pipeline proved stable, the search was extended to the remaining 4 variants (Q3\_K\_M, Q4\_0, Q5\_K\_M, Q6\_K), which ran to completion overnight without further incident. \textbf{All 7 variants are now complete.}}
 
 \subsection{Phase 2: Runtime Configuration Search --- Convergence}
 \label{sec:phase2-convergence-results}
@@ -1363,8 +1316,6 @@ Code, configuration, and all raw measurement data (Phase~1 sweep results, Phase~
 
 \end{thebibliography}
 
-\status{Entries above were verified via targeted web-search passes on 2026-08-17 and 2026-08-18 (author lists, venues, and page numbers, including DBLP for \cite{ref12}'s exact page range, resolving an earlier source discrepancy), improving on the original 2026-08-01 abstract-level pass. \textbf{All previously-flagged citation gaps are now resolved}: four new, directly relevant citations were added (\cite{ref17}, \cite{ref18}, \cite{ref19}, \cite{ref20}), and \cite{ref13} was resolved by finding CEG4N (confirmed via its full HTML text, not just abstract, after an initial candidate was checked and ruled out as a mismatch). The 2026-08-18 pass specifically searched for closer prior art on the ``physical hardware-in-the-loop $+$ joint quantization/hyperparameter search'' combination and located DeepQGHO~\cite{ref20}, the closest single match found to date (Section~\ref{sec:gap})---this stress-tests, rather than merely restates, the novelty claim. This is still not a full database-backed literature review (Google Scholar/Semantic Scholar citation-graph traversal with backward/forward citation chasing)---see Section~\ref{sec:limitations}.}
-
 \appendices
 
 \section{Repository Structure (for \texttt{hyptune/}, as of 2026-08-17)}
@@ -1388,7 +1339,7 @@ hyptune/
 |   |   |-- parameter_space.py   [done, tested]
 |   |   |-- objective.py         [done, tested]
 |   |   |-- mock_evaluator.py    [done, SYNTHETIC]
-|   |   |-- run_mock_rehearsal.py    [done, run]
+|   |   |-- run_mock_rehearsal.py    [early plumbing-validation driver, superseded by real data]
 |   |   |-- llama_cpp_evaluator.py   [done, run on Pi 5]
 |   |   `-- run_real_phase2.py       [done, run on Pi 5, all 7 variants]
 |   |-- validation/
@@ -1411,7 +1362,7 @@ hyptune/
     |-- phase1_retained.yaml [done --- all 7 Pareto-nondominated]
     |-- validation/          [done]
     |-- baselines/           [done]
-    |-- mock_phase2/         [done, SYNTHETIC]
+    |-- mock_phase2/         [early plumbing-validation SYNTHETIC data, superseded by real data]
     |-- phase2_runs/         [done --- all 7 variants, real Pi 5 data]
     `-- figures/             [done --- includes real hardware figures]
 \end{verbatim}
