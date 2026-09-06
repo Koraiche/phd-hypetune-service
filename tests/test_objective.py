@@ -9,6 +9,7 @@ from phase2_search.objective import (
     ObjectiveWeights,
     calibrate_normalization_ranges,
     make_objective,
+    score_evaluation,
 )
 from phase2_search.parameter_space import FloatParam, ParameterSpace
 
@@ -70,3 +71,13 @@ def test_higher_latency_increases_cost_all_else_equal(space):
     costs = [f(np.array([v])) for v in [0.0, 2.0, 4.0, 6.0, 8.0]]
     assert costs == sorted(costs)
     assert costs[0] < costs[-1]
+
+
+def test_score_evaluation_matches_objective(space):
+    ranges = NormalizationRanges(latency=(0, 8), quality=(-8, 0), memory=(100, 100), energy=(1, 1))
+    evaluator = LinearEvaluator()
+    point = np.array([3.0])
+
+    assert make_objective(space, evaluator, ranges)(point) == score_evaluation(
+        evaluator.evaluate(space.decode(point)), ranges
+    )

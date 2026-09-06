@@ -49,14 +49,21 @@ def main():
                 q = float(row["quality_neg_ppl"])
                 mem = float(row["peak_rss_mb"])
                 en = float(row["energy_j_per_token"])
-                recorded = float(row["cost"])
+                # New runs preserve both values explicitly; historical CSVs
+                # only have ``cost``, which was the search-time minimum.
+                recorded = float(row.get("search_cost") or row["cost"])
                 lat_n = clip01((lat - lat_lo) / (lat_hi - lat_lo))
                 q_n = clip01((q - q_lo) / (q_hi - q_lo))
                 mem_n = clip01((mem - mem_lo) / (mem_hi - mem_lo))
                 en_n = clip01((en - en_lo) / (en_hi - en_lo))
                 recon = ALPHA * lat_n + BETA * (1 - q_n) + GAMMA * mem_n + DELTA * en_n
                 ratio = recon / recorded if recorded > 1e-9 else float("inf")
-                print(f"  {row['method']:8s} recorded={recorded:.4f}  reconstructed={recon:.4f}  ratio={ratio:6.2f}x")
+                verified = row.get("verified_cost")
+                verified_text = f"  verified={float(verified):.4f}" if verified else ""
+                print(
+                    f"  {row['method']:8s} recorded={recorded:.4f}  "
+                    f"reconstructed={recon:.4f}{verified_text}  ratio={ratio:6.2f}x"
+                )
 
 
 if __name__ == "__main__":

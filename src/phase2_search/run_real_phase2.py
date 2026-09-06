@@ -24,14 +24,20 @@ budget. Fixed here by:
    direct measurement to cut instrumentation overhead to ~6% of a bare call
    rather than a larger, unmeasured overhead at the original interval.
 
+POST-EXPERIMENT HARDENING 2026-09-07 (not used to produce the checked-in
+article results): search measurements now use repeated llama-bench runs,
+selected candidates receive a separate higher-repetition verification before
+any winner is reported, calibration uses 24 samples, every hardware call is
+temperature-gated, and deterministic objective-call traces make every
+optimizer and baseline resumable after a process or device crash.
+
 Usage:
     python3 -u src/phase2_search/run_real_phase2.py
 """
 from __future__ import annotations
 
 import csv
-import re
-import subprocess
+import os
 import sys
 import time
 from pathlib import Path
@@ -45,9 +51,16 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from baselines import grid_search, random_search  # noqa: E402
+from measurement.thermal_guard import ThermalGuard  # noqa: E402
 from phase2_search import de, gwo, pso  # noqa: E402
+from phase2_search.checkpoint import run_with_checkpoint  # noqa: E402
 from phase2_search.llama_cpp_evaluator import LlamaCppEvaluator  # noqa: E402
-from phase2_search.objective import calibrate_normalization_ranges, make_objective  # noqa: E402
+from phase2_search.objective import (  # noqa: E402
+    NormalizationRanges,
+    calibrate_normalization_ranges,
+    make_objective,
+    score_evaluation,
+)
 from phase2_search.parameter_space import CategoricalParam, IntParam, ParameterSpace  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -55,12 +68,16 @@ BIN_DIR = Path("/home/fkoraiche/llama.cpp/build/bin")
 BASE_MODEL_DIR = REPO_ROOT / "models"
 QUALITY_CORPUS = REPO_ROOT / "data" / "prompts" / "wikitext2_quality_slice.txt"
 
-N_CALIBRATION_SAMPLES = 8
+N_CALIBRATION_SAMPLES = 24
 TARGET_MINUTES_PER_ALGO = 12  # per algorithm, per retained variant -- deliberately tight
 MIN_POP, MIN_ITER = 4, 5  # floor of 20 evaluations, not 48
 N_RUNS = 2  # reduced from a synthetic-validation-scale 10; real cost, disclosed
 BASE_SEED = 100
 KV_CACHE_TYPES = ["f16", "q8_0", "q4_0"]
+SEARCH_BENCH_REPETITIONS = 3
+VERIFICATION_BENCH_REPETITIONS = 5
+VERIFICATION_ABS_TOLERANCE = 0.03
+VERIFICATION_REL_TOLERANCE = 0.25
 
 ALGORITHMS = [
     ("PSO", pso.optimize, "#2a78d6"),
@@ -80,35 +97,53 @@ def log(msg: str) -> None:
     print(msg, flush=True)
 
 
-# Added after the Pi crashed and rebooted mid-run (2026-08-17), most likely
-# from sustained thermal load -- no thermal_guard.py existed at the time
-# (still-open limitation, see article_draft.md Section 6). This is a minimal,
-# targeted mitigation: check SoC temperature before starting each variant and
-# wait for it to cool rather than launching straight into another ~1-2h of
-# sustained load while already hot.
-COOLDOWN_TEMP_C = 65.0
-COOLDOWN_CHECK_INTERVAL_S = 60
-COOLDOWN_MAX_WAIT_S = 900
+def write_yaml_atomic(path: Path, value: dict) -> None:
+    temporary = path.with_name(f".{path.name}.tmp")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(temporary, "w") as f:
+        yaml.safe_dump(value, f, sort_keys=False)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temporary, path)
 
 
-def read_soc_temp_c(vcgencmd_bin: str = "vcgencmd") -> float:
-    result = subprocess.run([vcgencmd_bin, "measure_temp"], capture_output=True, text=True, timeout=5)
-    m = re.search(r"temp=([\d.]+)", result.stdout)
-    return float(m.group(1))
+def verification_is_consistent(search_cost: float, verified_cost: float) -> tuple[bool, float, float]:
+    """Apply the predeclared absolute/relative winner-verification rule."""
+    if not (np.isfinite(search_cost) and np.isfinite(verified_cost)):
+        return False, np.inf, np.inf
+    absolute_gap = abs(verified_cost - search_cost)
+    scale = max(abs(verified_cost), abs(search_cost), 1e-12)
+    relative_gap = absolute_gap / scale
+    consistent = (
+        absolute_gap <= VERIFICATION_ABS_TOLERANCE
+        or relative_gap <= VERIFICATION_REL_TOLERANCE
+    )
+    return consistent, absolute_gap, relative_gap
 
 
-def wait_for_cooldown() -> None:
-    waited = 0
-    while waited < COOLDOWN_MAX_WAIT_S:
-        temp = read_soc_temp_c()
-        if temp < COOLDOWN_TEMP_C:
-            log(f"[real-phase2] SoC temp {temp:.1f}C, below cooldown threshold ({COOLDOWN_TEMP_C}C) -- proceeding")
-            return
-        log(f"[real-phase2] SoC temp {temp:.1f}C >= {COOLDOWN_TEMP_C}C threshold -- cooling down "
-            f"({waited}s waited so far)")
-        time.sleep(COOLDOWN_CHECK_INTERVAL_S)
-        waited += COOLDOWN_CHECK_INTERVAL_S
-    log(f"[real-phase2] cooldown wait exceeded {COOLDOWN_MAX_WAIT_S}s -- proceeding anyway, temp still high")
+def checkpoint_metadata(
+    variant_name: str,
+    method: str,
+    seed: int,
+    space: ParameterSpace,
+    ranges,
+    **budget,
+) -> dict:
+    return {
+        "schema_version": 1,
+        "variant": variant_name,
+        "method": method,
+        "seed": seed,
+        "bounds": {"lower": space.lb.tolist(), "upper": space.ub.tolist()},
+        "normalization_ranges": {
+            "latency": list(ranges.latency),
+            "quality": list(ranges.quality),
+            "memory": list(ranges.memory),
+            "energy": list(ranges.energy),
+        },
+        "search_bench_repetitions": SEARCH_BENCH_REPETITIONS,
+        **budget,
+    }
 
 
 def _style_axes(ax) -> None:
@@ -143,27 +178,74 @@ def precompute_quality(evaluator: LlamaCppEvaluator) -> None:
 
 def run_variant(variant_name: str, results_dir: Path, figures_dir: Path) -> None:
     log(f"\n{'=' * 70}\nREAL PHASE 2 SEARCH — variant {variant_name}\n{'=' * 70}")
-    wait_for_cooldown()
     model_path = BASE_MODEL_DIR / f"tinyllama-1.1b-{variant_name}.gguf"
     if not model_path.exists():
         log(f"[real-phase2] SKIP {variant_name}: {model_path} not found")
         return
 
+    variant_results_dir = results_dir / variant_name
+    variant_results_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_root = variant_results_dir / "checkpoints"
+
+    thermal_guard = ThermalGuard(logger=log)
     evaluator = LlamaCppEvaluator(
         bench_bin=str(BIN_DIR / "llama-bench"),
         perplexity_bin=str(BIN_DIR / "llama-perplexity"),
         model_gguf=model_path,
         quality_corpus=QUALITY_CORPUS,
+        bench_repetitions=SEARCH_BENCH_REPETITIONS,
+        thermal_guard=thermal_guard,
     )
     space = build_space()
 
-    log("[real-phase2] pre-computing quality per KV-cache type (one-time cost, cached)...")
-    precompute_quality(evaluator)
-
-    log(f"[real-phase2] calibrating normalization ranges + per-eval cost ({N_CALIBRATION_SAMPLES} warm-cache samples)...")
-    t0 = time.monotonic()
-    ranges = calibrate_normalization_ranges(space, evaluator, n_samples=N_CALIBRATION_SAMPLES, seed=BASE_SEED)
-    per_eval_s = (time.monotonic() - t0) / N_CALIBRATION_SAMPLES
+    calibration_path = checkpoint_root / "calibration.yaml"
+    expected_settings = {
+        "samples": N_CALIBRATION_SAMPLES,
+        "search_bench_repetitions": SEARCH_BENCH_REPETITIONS,
+    }
+    if calibration_path.exists():
+        with open(calibration_path) as f:
+            calibration = yaml.safe_load(f)
+        if calibration.get("settings") != expected_settings:
+            raise RuntimeError(
+                f"calibration checkpoint settings differ in {calibration_path}; "
+                "move the old checkpoints aside or restore the original settings"
+            )
+        saved_ranges = calibration["normalization_ranges"]
+        ranges = NormalizationRanges(
+            latency=tuple(saved_ranges["latency"]),
+            quality=tuple(saved_ranges["quality"]),
+            memory=tuple(saved_ranges["memory"]),
+            energy=tuple(saved_ranges["energy"]),
+        )
+        per_eval_s = float(calibration["per_eval_cost_s"])
+        evaluator._quality_cache.update(calibration["quality_cache"])
+        log(f"[real-phase2] loaded calibration and quality cache from {calibration_path}")
+    else:
+        log("[real-phase2] pre-computing quality per KV-cache type (one-time cost, cached)...")
+        precompute_quality(evaluator)
+        log(
+            f"[real-phase2] calibrating normalization ranges + per-eval cost "
+            f"({N_CALIBRATION_SAMPLES} warm-cache samples)..."
+        )
+        t0 = time.monotonic()
+        ranges = calibrate_normalization_ranges(
+            space, evaluator, n_samples=N_CALIBRATION_SAMPLES, seed=BASE_SEED
+        )
+        per_eval_s = (time.monotonic() - t0) / N_CALIBRATION_SAMPLES
+        calibration = {
+            "settings": expected_settings,
+            "per_eval_cost_s": per_eval_s,
+            "quality_cache": evaluator._quality_cache,
+            "normalization_ranges": {
+                "latency": list(ranges.latency),
+                "quality": list(ranges.quality),
+                "memory": list(ranges.memory),
+                "energy": list(ranges.energy),
+            },
+        }
+        write_yaml_atomic(calibration_path, calibration)
+        log(f"[real-phase2] wrote reusable calibration checkpoint {calibration_path}")
     log(f"[real-phase2] ranges: {ranges}")
     log(f"[real-phase2] measured per-eval cost (warm cache): {per_eval_s:.2f}s")
 
@@ -175,9 +257,6 @@ def run_variant(variant_name: str, results_dir: Path, figures_dir: Path) -> None
     log(f"[real-phase2] budget: population={pop}, iterations={iters}, {N_RUNS} runs x {len(ALGORITHMS)} algorithms "
         f"(~{total_est_min:.0f} min estimated for this variant)")
 
-    variant_results_dir = results_dir / variant_name
-    variant_results_dir.mkdir(parents=True, exist_ok=True)
-
     convergences, finals, best_overall = {}, {}, {}
     for algo_name, algo_fn, _color in ALGORITHMS:
         log(f"[real-phase2] --- {algo_name} ---")
@@ -185,39 +264,80 @@ def run_variant(variant_name: str, results_dir: Path, figures_dir: Path) -> None
         run_best_x, run_best_cost = None, np.inf
         for run in range(N_RUNS):
             t_run = time.monotonic()
-            res = algo_fn(objective, space.lb, space.ub, space.dim, pop_size=pop, max_iter=iters, seed=BASE_SEED + run)
-            log(f"[real-phase2] {algo_name} run {run + 1}/{N_RUNS}: best={res.best_cost:.4f} "
-                f"({time.monotonic() - t_run:.0f}s)")
+            seed = BASE_SEED + run
+            res, replayed, loaded = run_with_checkpoint(
+                algo_fn,
+                objective,
+                checkpoint_root / algo_name.lower() / f"run_{run + 1}",
+                checkpoint_metadata(
+                    variant_name, algo_name, seed, space, ranges,
+                    population=pop, iterations=iters,
+                ),
+                lb=space.lb,
+                ub=space.ub,
+                dim=space.dim,
+                pop_size=pop,
+                max_iter=iters,
+                seed=seed,
+            )
+            resume_note = "loaded completed checkpoint" if loaded else f"replayed {replayed} evaluations"
+            log(
+                f"[real-phase2] {algo_name} run {run + 1}/{N_RUNS}: best={res.best_cost:.4f} "
+                f"({time.monotonic() - t_run:.0f}s; {resume_note})"
+            )
             runs_conv.append(res.convergence)
             runs_final.append(res.best_cost)
             if res.best_cost < run_best_cost:
                 run_best_cost = res.best_cost
                 run_best_x = res.best_x
+
+            partial_csv = variant_results_dir / "final_costs_partial.csv"
+            partial_names = list(finals) + [algo_name]
+            partial_values = {**finals, algo_name: np.asarray(runs_final)}
+            with open(partial_csv, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["run"] + partial_names)
+                for completed_run in range(N_RUNS):
+                    writer.writerow(
+                        [completed_run + 1]
+                        + [
+                            partial_values[name][completed_run]
+                            if completed_run < len(partial_values[name]) else ""
+                            for name in partial_names
+                        ]
+                    )
+            log(f"[real-phase2] wrote {partial_csv} (incremental progress marker)")
         convergences[algo_name] = np.array(runs_conv)
         finals[algo_name] = np.array(runs_final)
         best_overall[algo_name] = (run_best_x, run_best_cost)
-
-        # Incremental write after EVERY algorithm, not just at the end of the
-        # whole variant — the original script's silence for 6+ hours with no
-        # partial output was itself the design flaw that forced a kill.
-        partial_csv = variant_results_dir / "final_costs_partial.csv"
-        with open(partial_csv, "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["run"] + list(finals.keys()))
-            for run in range(N_RUNS):
-                writer.writerow([run + 1] + [finals[a][run] if a in finals else "" for a in finals])
-        log(f"[real-phase2] wrote {partial_csv} (incremental progress marker)")
 
     # Baselines at the matched total-evaluation budget
     budget = pop * iters
     log(f"[real-phase2] --- baselines (budget={budget}) ---")
     t_r = time.monotonic()
-    random_res = random_search.optimize(objective, space.lb, space.ub, space.dim, budget=budget, seed=BASE_SEED)
-    log(f"[real-phase2] random search: best={random_res.best_cost:.4f} ({time.monotonic() - t_r:.0f}s)")
+    random_res, random_replayed, random_loaded = run_with_checkpoint(
+        random_search.optimize,
+        objective,
+        checkpoint_root / "random",
+        checkpoint_metadata(variant_name, "Random", BASE_SEED, space, ranges, budget=budget),
+        lb=space.lb, ub=space.ub, dim=space.dim, budget=budget, seed=BASE_SEED,
+    )
+    random_note = "loaded completed checkpoint" if random_loaded else f"replayed {random_replayed} evaluations"
+    log(
+        f"[real-phase2] random search: best={random_res.best_cost:.4f} "
+        f"({time.monotonic() - t_r:.0f}s; {random_note})"
+    )
     t_g = time.monotonic()
-    grid_res = grid_search.optimize(objective, space.lb, space.ub, space.dim, budget=budget, seed=BASE_SEED)
+    grid_res, grid_replayed, grid_loaded = run_with_checkpoint(
+        grid_search.optimize,
+        objective,
+        checkpoint_root / "grid",
+        checkpoint_metadata(variant_name, "Grid", BASE_SEED, space, ranges, budget=budget),
+        lb=space.lb, ub=space.ub, dim=space.dim, budget=budget, seed=BASE_SEED,
+    )
+    grid_note = "loaded completed checkpoint" if grid_loaded else f"replayed {grid_replayed} evaluations"
     log(f"[real-phase2] grid search: best={grid_res.best_cost:.4f}, "
-        f"realized_evals={len(grid_res.convergence)} ({time.monotonic() - t_g:.0f}s)")
+        f"realized_evals={len(grid_res.convergence)} ({time.monotonic() - t_g:.0f}s; {grid_note})")
 
     # --- persist raw data ---
     medians = {a: np.median(convergences[a], axis=0) for a, _, _ in ALGORITHMS}
@@ -236,24 +356,70 @@ def run_variant(variant_name: str, results_dir: Path, figures_dir: Path) -> None
             writer.writerow([run + 1] + [finals[a][run] for a, _, _ in ALGORITHMS])
 
     best_csv = variant_results_dir / "best_configs.csv"
+    verification_evaluator = LlamaCppEvaluator(
+        bench_bin=evaluator.bench_bin,
+        perplexity_bin=evaluator.perplexity_bin,
+        model_gguf=evaluator.model_gguf,
+        quality_corpus=evaluator.quality_corpus,
+        quality_ctx_size=evaluator.quality_ctx_size,
+        bench_repetitions=VERIFICATION_BENCH_REPETITIONS,
+        n_gen=evaluator.n_gen,
+        ram_ceiling_mb=evaluator.ram_ceiling_mb,
+        thermal_guard=thermal_guard,
+        _quality_cache=dict(evaluator._quality_cache),
+    )
+    verification_rows = []
     with open(best_csv, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["method", "cost", "threads", "n_batch", "n_ctx", "kv_cache_type",
-                          "latency_ms_per_token", "quality_neg_ppl", "peak_rss_mb", "energy_j_per_token", "feasible"])
-        for method_name, best_x, best_cost in (
+        writer.writerow([
+            "method", "cost", "search_cost", "verified_cost", "absolute_gap", "relative_gap",
+            "verification_status", "verification_repetitions", "threads", "n_batch", "n_ctx", "kv_cache_type",
+            "latency_ms_per_token", "quality_neg_ppl", "peak_rss_mb", "energy_j_per_token", "feasible",
+        ])
+        for method_name, best_x, search_cost in (
             [(a, *best_overall[a]) for a, _, _ in ALGORITHMS]
             + [("Random", random_res.best_x, random_res.best_cost), ("Grid", grid_res.best_x, grid_res.best_cost)]
         ):
             config = space.decode(best_x)
-            raw = evaluator.evaluate(config)
+            raw = verification_evaluator.evaluate(config)
+            verified_cost = score_evaluation(raw, ranges)
+            consistent, absolute_gap, relative_gap = verification_is_consistent(search_cost, verified_cost)
+            status = "verified" if consistent else "unstable"
             writer.writerow([
-                method_name, best_cost, config["threads"], config["n_batch"], config["n_ctx"], config["kv_cache_type"],
+                method_name, verified_cost, search_cost, verified_cost, absolute_gap, relative_gap,
+                status, VERIFICATION_BENCH_REPETITIONS,
+                config["threads"], config["n_batch"], config["n_ctx"], config["kv_cache_type"],
                 round(raw.latency_ms_per_token, 2), round(raw.quality, 4), round(raw.peak_rss_mb, 1),
                 round(raw.energy_j_per_token, 4), raw.feasible,
             ])
-            log(f"[real-phase2] {method_name} best: cost={best_cost:.4f} config={config} "
+            verification_rows.append({
+                "method": method_name,
+                "search_cost": float(search_cost),
+                "verified_cost": float(verified_cost),
+                "verification_status": status,
+                "absolute_gap": float(absolute_gap),
+                "relative_gap": float(relative_gap),
+                "config": config,
+            })
+            log(f"[real-phase2] {method_name} candidate: search={search_cost:.4f}, "
+                f"verified={verified_cost:.4f}, status={status}, config={config} "
                 f"latency={raw.latency_ms_per_token:.1f}ms/tok mem={raw.peak_rss_mb:.0f}MB "
                 f"energy={raw.energy_j_per_token:.3f}J/tok")
+
+    verified_candidates = [row for row in verification_rows if row["verification_status"] == "verified"]
+    winner_summary = {
+        "status": "verified_winner" if verified_candidates else "no_verified_winner",
+        "verification_absolute_tolerance": VERIFICATION_ABS_TOLERANCE,
+        "verification_relative_tolerance": VERIFICATION_REL_TOLERANCE,
+        "verification_repetitions": VERIFICATION_BENCH_REPETITIONS,
+    }
+    if verified_candidates:
+        winner = min(verified_candidates, key=lambda row: row["verified_cost"])
+        winner_summary["winner"] = winner
+        log(f"[real-phase2] verified winner: {winner['method']} at {winner['verified_cost']:.4f}")
+    else:
+        log("[real-phase2] no candidate passed verification; no winner will be reported")
+    write_yaml_atomic(variant_results_dir / "winner.yaml", winner_summary)
 
     meta = {
         "variant": variant_name,
@@ -263,13 +429,17 @@ def run_variant(variant_name: str, results_dir: Path, figures_dir: Path) -> None
         "per_eval_cost_s": per_eval_s,
         "budget": budget,
         "grid_realized_evals": len(grid_res.convergence),
+        "calibration_samples": N_CALIBRATION_SAMPLES,
+        "search_bench_repetitions": SEARCH_BENCH_REPETITIONS,
+        "verification_bench_repetitions": VERIFICATION_BENCH_REPETITIONS,
+        "verification_absolute_tolerance": VERIFICATION_ABS_TOLERANCE,
+        "verification_relative_tolerance": VERIFICATION_REL_TOLERANCE,
         "normalization_ranges": {
             "latency": list(ranges.latency), "quality": list(ranges.quality),
             "memory": list(ranges.memory), "energy": list(ranges.energy),
         },
     }
-    with open(variant_results_dir / "meta.yaml", "w") as f:
-        yaml.safe_dump(meta, f)
+    write_yaml_atomic(variant_results_dir / "meta.yaml", meta)
 
     # --- figures ---
     fig, ax = plt.subplots(figsize=(6, 4), dpi=150)

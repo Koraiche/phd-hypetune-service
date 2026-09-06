@@ -125,15 +125,29 @@ def make_objective(
 
     def objective(x: np.ndarray) -> float:
         result = evaluator.evaluate(space.decode(x))
-        if not result.feasible:
-            return math.inf
-
-        n = ranges.normalize(result)
-        return (
-            weights.alpha * n["latency"]
-            + weights.beta * (1.0 - n["quality"])
-            + weights.gamma * n["memory"]
-            + weights.delta * n["energy"]
-        )
+        return score_evaluation(result, ranges, weights)
 
     return objective
+
+
+def score_evaluation(
+    result: EvaluationResult,
+    ranges: NormalizationRanges,
+    weights: ObjectiveWeights = ObjectiveWeights(),
+) -> float:
+    """Score an already-measured result with the search objective.
+
+    Keeping this operation separate from :func:`make_objective` lets the
+    hardware runner independently re-measure a selected candidate and score
+    that new observation without accidentally triggering another benchmark.
+    """
+    if not result.feasible:
+        return math.inf
+
+    n = ranges.normalize(result)
+    return (
+        weights.alpha * n["latency"]
+        + weights.beta * (1.0 - n["quality"])
+        + weights.gamma * n["memory"]
+        + weights.delta * n["energy"]
+    )

@@ -40,10 +40,12 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common.llama_cpp_runner import LlamaCppError, run_bench_instrumented, run_perplexity  # noqa: E402
 from phase2_search.objective import EvaluationResult  # noqa: E402
+from measurement.thermal_guard import ThermalGuard  # noqa: E402
 
 RAM_CEILING_MB = 6144.0
 
@@ -55,13 +57,16 @@ class LlamaCppEvaluator:
     model_gguf: Path
     quality_corpus: Path
     quality_ctx_size: int = 512
-    bench_repetitions: int = 1
+    bench_repetitions: int = 3
     n_gen: int = 64
     ram_ceiling_mb: float = RAM_CEILING_MB
+    thermal_guard: Optional[ThermalGuard] = field(default=None, repr=False, compare=False)
     _quality_cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def _quality_for(self, kv_cache_type: str) -> float:
         if kv_cache_type not in self._quality_cache:
+            if self.thermal_guard is not None:
+                self.thermal_guard.wait_until_safe(f"quality measurement ({kv_cache_type})")
             result = run_perplexity(
                 self.perplexity_bin, self.model_gguf, self.quality_corpus,
                 ctx_size=self.quality_ctx_size,
@@ -75,6 +80,9 @@ class LlamaCppEvaluator:
         n_batch = config["n_batch"]
         n_ctx = config["n_ctx"]
         kv = config["kv_cache_type"]
+
+        if self.thermal_guard is not None:
+            self.thermal_guard.wait_until_safe("llama-bench evaluation")
 
         try:
             result = run_bench_instrumented(
@@ -93,7 +101,12 @@ class LlamaCppEvaluator:
 
         gen_tps = result.bench.gen_tokens_per_sec or 1e-6
         latency_ms_per_token = 1000.0 / gen_tps
-        energy_j_per_token = result.energy_joules / self.n_gen if self.n_gen else 0.0
+        # llama-bench executes the generation test once per repetition.  The
+        # subprocess-level energy meter spans those repetitions, so divide by
+        # the corresponding generated-token count rather than making energy
+        # appear to grow linearly merely because timing stability was raised.
+        generated_tokens = self.n_gen * self.bench_repetitions
+        energy_j_per_token = result.energy_joules / generated_tokens if generated_tokens else 0.0
 
         return EvaluationResult(
             latency_ms_per_token=latency_ms_per_token,

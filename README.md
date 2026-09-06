@@ -33,8 +33,9 @@ Everything below has been run for real, not simulated or mocked:
   article Section 5.3 onward). Runs PSO, GWO, DE, grid search, and random
   search against the real objective — real latency, real memory, real
   on-device energy (via the Pi 5's PMIC, see below), real perplexity — for
-  all 7 variants. Includes a thermal-cooldown safety check
-  (`wait_for_cooldown()` in the same file) added after a mid-run Pi crash.
+  all 7 variants. The original run included a between-variant thermal
+  cooldown added after a mid-run Pi crash; the current runner supersedes it
+  with the per-evaluation guard described below.
   Output: `results/phase2_runs/<variant>/{convergence,final_costs,best_configs}.csv`
   and `meta.yaml` per variant, plus figures in `results/figures/`.
 - **Real energy measurement** (`src/measurement/power_logger.py`) — reads the
@@ -117,6 +118,32 @@ python src/phase1_quant_sweep.py --config config/phase1.yaml
 python3 -u src/phase2_search/run_real_phase2.py
 ```
 
+The checked-in Phase 2 data remains the original experiment described by the
+article (`bench_repetitions=1`, 8 calibration samples, and only a
+between-variant cooldown). The runner has since been hardened for a follow-up
+run: its current defaults use 3 repetitions per search evaluation, 5 for an
+independent winner check, 24 calibration samples, a thermal gate before every
+hardware evaluation, and an evaluation-level replay checkpoint. Consequently,
+a new run is a strengthened follow-up experiment, not a byte-for-byte
+reproduction of the checked-in Phase 2 CSVs. The article should only be updated
+to describe these settings after that follow-up has actually run on the Pi.
+
+Checkpoints are written under
+`results/phase2_runs/<variant>/checkpoints/`. Restart the same command after a
+crash: completed objective calls are replayed locally in deterministic order,
+then measurement resumes at the first unfinished call. Calibration ranges and
+the expensive per-KV-cache quality values are checkpointed too. If search
+settings or optimizer code change, the runner fails closed instead of mixing
+old measurements into the new experiment; move the old checkpoint directory
+aside before intentionally starting an incompatible run.
+
+After each method finishes, its search-time candidate is independently measured
+with 5 repetitions. `best_configs.csv` preserves both `search_cost` and
+`verified_cost`, labels candidates `verified` or `unstable`, and `winner.yaml`
+reports a winner only from candidates passing the declared absolute/relative
+consistency rule. This makes the optimizer's-curse check part of the pipeline
+rather than a post-hoc diagnostic.
+
 Edit `PHASE2_VARIANT_SUBSET` at the top of the file to change which variants
 run (currently set to the 4 variants that were added in the second batch —
 `Q3_K_M, Q4_0, Q5_K_M, Q6_K` — since `Q4_K_M, Q2_K, Q8_0` were run in an
@@ -198,15 +225,18 @@ submission requirement, so the paper cannot go out without them.
 
 ### 2. A full database-backed literature review
 
-What exists now: **three passes of general web search** (2026-08-01,
-2026-08-17, 2026-08-18), each time finding candidate papers by keyword
+What exists now: **four targeted web-search passes** (2026-08-01,
+2026-08-17, 2026-08-18, and a citation-oriented pass on 2026-09-07), each time finding candidate papers by keyword
 search and then verifying author names / venue / year / pages against at
-least one independent source before citing. This located and verified 20
+least one independent source before citing. This located and verified 22
 real references, including the two closest pieces of prior art found —
 LLMPi (`ref19`, CVPRW 2025 EDGE workshop) and DeepQGHO (`ref20`, IEEE Access
 2022) — and used DeepQGHO specifically to stress-test the novelty claim
 (Section 2.4 names exactly which of the claim's 4 defining criteria it does
-and doesn't satisfy).
+and doesn't satisfy). The 2026-09-07 pass additionally found Embedded Arena
+(`ref21`) and Sadheerthan et al.'s PSO-designed TinyLlama softmax
+approximation (`ref22`); both manuscripts now discuss precisely which parts
+of the claimed gap these works narrow and why neither closes the full gap.
 
 What this is **not** a substitute for, and what still needs to happen:
 
@@ -238,23 +268,13 @@ What this is **not** a substitute for, and what still needs to happen:
   If nothing closer than DeepQGHO turns up, the novelty claim as written
   stands unmodified. If something does, Section 2.4 (`sec:gap` in LaTeX)
   needs one more paragraph in the same style as the DeepQGHO discussion.
-- **Two specific bibliography entries worth a final independent check**,
-  even though both are already resolved from multiple sources:
-  - `ref12` (HAQ, Wang et al., CVPR 2019): page range confirmed as
-    8612–8620 via DBLP, which itself resolved a discrepancy between two
-    other secondary sources (one gave 8604–8612). DBLP is generally
-    reliable but a direct look at IEEE Xplore's own record would be the
-    fully authoritative source if there's any remaining doubt.
-  - `ref13` (CEG4N, Matos Jr. et al., NSV/FoMLAS 2022): this replaced an
-    earlier candidate (Miccini et al., tinyML 2024) that was checked and
-    found *not* to match the originally-intended description (a
-    genetic-algorithm-vs-brute-force-enumeration comparison). CEG4N was
-    confirmed via its full HTML text (not just its abstract) to use an
-    NSGA-II genetic algorithm and to explicitly frame this against
-    brute-force combinatorics (52⁷ combinations for a 7-layer network) — a
-    real match, but worth a final skim of the actual paper if time allows,
-    since it was found via a second, more targeted search rather than the
-    original search that identified this citation gap in the first place.
+- **The two bibliography spot-checks are resolved** (2026-09-07): `ref12`
+  (HAQ) was rechecked against IEEE Xplore and the official CVPR open-access
+  paper, confirming its DOI and 8612–8620 page range. `ref13` (CEG4N) was
+  rechecked against Springer’s LNCS 13466 table of contents and the arXiv
+  record, confirming the authors, venue, DOI, and pages 29–45. These checks
+  improve bibliographic authority but do not replace the still-needed
+  database-wide forward/backward citation traversal above.
 
 ### 3. Target-venue-specific formatting
 
@@ -342,8 +362,8 @@ priority order the paper itself gives (Conclusion, Section 7):
    which would re-open the temperature/top-p search dimensions that were
    dropped from Phase 2's search space specifically because perplexity
    cannot distinguish their effect on generation quality.
-5. **A larger or online-adaptive calibration sample size** — `N_CALIBRATION_SAMPLES=8`
-   in `run_real_phase2.py` is small enough that it directly caused a
+5. **A larger or online-adaptive calibration sample size** — the original
+   run's `N_CALIBRATION_SAMPLES=8` was small enough that it directly caused a
    real, disclosed artifact on Q2_K (two methods' costs clipped to an exact
    calibration floor of 0.0000).
 6. Extending to other edge platforms (Jetson Orin Nano, mobile SoCs) or
@@ -354,11 +374,18 @@ priority order the paper itself gives (Conclusion, Section 7):
 7. Hybrid metaheuristics (e.g., PSO–DE hybrids), and extending the discrete
    Phase 1 axis beyond quantization to structured pruning or LoRA-merged
    distillation.
-8. A full `thermal_guard.py` module — what exists today
-   (`wait_for_cooldown()` inside `run_real_phase2.py`) only gates *between*
-   variants (checks temperature before starting a new one); it does not
-   guard between individual evaluations within a variant, which is where
-   most of the thermal load actually accumulates during a long run.
+8. A full `thermal_guard.py` module — the original experiment's
+   `wait_for_cooldown()` only gated *between* variants, not individual
+   evaluations where most thermal load accumulates. The replacement now
+   gates every benchmark and refuses to continue after a cooldown timeout;
+   it still needs validation in a new Pi run.
+
+Implementation status (2026-09-07): items 1, 2, and 8 are implemented for
+future runs, and item 5 is partially addressed by raising the calibration
+sample count from 8 to 24. They are not retroactively claimed as part of the
+completed experiment: hardware validation and a new Pi run are still required
+before the article or its existing result tables can adopt them. Items 3, 4,
+6, and 7 remain new research extensions rather than repository maintenance.
 
 ---
 
