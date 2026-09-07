@@ -276,166 +276,47 @@ Figures: `results/figures/baseline_comparison_{Sphere,Goldstein_Price,FindValues
 
 ### 5.3 Phase 2: runtime configuration search — convergence
 
-**Q4_K_M (complete).** Figure `results/figures/real_phase2_convergence_Q4_K_M.png` plots the median (of 2 runs) best-cost-so-far against iteration for PSO, GWO, and DE, on the real hardware-measured objective (Section 3.6) with population 4 and 5 iterations — a budget an order of magnitude smaller than the synthetic-validation protocol (Section 5.2), by necessity: at a measured ≈33s per real evaluation (calibrated per-variant, `meta.yaml`), the population×iteration floor used in Section 5.2 (20×200) would not complete overnight.
+Figures `results/figures/real_phase2_convergence_{Q4_K_M,Q2_K,Q8_0,Q3_K_M,Q4_0,Q5_K_M,Q6_K}.png` plot the median (of 2 runs) best-cost-so-far against iteration for PSO, GWO, and DE, on the real hardware-measured objective (Section 3.6), population 4, 5 iterations by default (8 for Q4_0 — see below) — a budget an order of magnitude smaller than the synthetic-validation protocol (Section 5.2), by necessity: at 21–60s per real evaluation (calibrated per variant, `meta.yaml`), the population×iteration floor used there (20×200) would not complete overnight. The table below gives the median final-iteration cost per algorithm and variant.
 
-| Iteration | PSO (median) | GWO (median) | DE (median) |
-|---|---|---|---|
-| 1 | 0.1047 | 0.1909 | 0.1136 |
-| 2 | 0.1047 | 0.1158 | 0.1136 |
-| 3 | 0.1047 | 0.1080 | 0.1136 |
-| 4 | 0.0882 | 0.1080 | 0.0603 |
-| 5 | 0.0882 | 0.1080 | 0.0603 |
+| Variant | Iters | PSO | GWO | DE | Per-eval (s) |
+|---|---|---|---|---|---|
+| Q4_K_M | 5 | 0.0882 | 0.1080 | 0.0603 | 32.9 |
+| Q2_K | 5 | 0.0488 | 0.0238 | 0.0423 | 59.9 |
+| Q8_0 | 5 | 0.0769 | 0.0499 | 0.0949 | 33.6 |
+| Q3_K_M | 5 | 0.1016 | 0.0448 | 0.0445 | 51.0 |
+| Q4_0 | 8 | 0.0843 | 0.0828 | 0.1152 | 20.7 |
+| Q5_K_M | 5 | 0.1095 | 0.0775 | 0.2086 | 35.0 |
+| Q6_K | 5 | 0.0604 | 0.0608 | 0.1053 | 35.5 |
 
-DE reaches the lowest median final cost (0.0603) and, in its best single run, the lowest cost of any algorithm on this variant (0.0205, run 1 — see Section 5.4). GWO converges earliest in wall-clock terms (its iteration-2 value is already close to its iteration-5 value) but plateaus at a visibly worse cost than PSO or DE — the same premature-convergence pattern flagged as a hypothesis in Section 5.2 on the asymmetric synthetic functions reproduces here on the real objective. PSO is flat for the first three iterations before a single late improvement at iteration 4; with only 5 iterations total this is a coarse curve, not a smooth one, and should be read as a budget-constrained real-hardware result rather than a well-resolved convergence trace.
-
-**Q2_K (complete).** Figure `results/figures/real_phase2_convergence_Q2_K.png`, same protocol (population 4, 5 iterations, per-eval cost 59.9s — nearly double Q4_K_M's 32.9s, since Q2_K's smaller model runs faster per token but the calibration landed on a different sample mix):
-
-| Iteration | PSO (median) | GWO (median) | DE (median) |
-|---|---|---|---|
-| 1 | 0.0607 | 0.0913 | 0.0460 |
-| 2 | 0.0607 | 0.0913 | 0.0460 |
-| 3 | 0.0550 | 0.0388 | 0.0460 |
-| 4 | 0.0550 | 0.0238 | 0.0423 |
-| 5 | 0.0488 | 0.0238 | 0.0423 |
-
-On Q2_K, GWO overtakes both PSO and DE by iteration 4 rather than plateauing early as it did on Q4_K_M — the premature-convergence hypothesis from Section 5.2 does **not** generalize to this variant. All three algorithms converge to a narrower final band (0.0238–0.0488) than on Q4_K_M (0.0603–0.1080), consistent with Q2_K's smaller, cheaper model exposing a flatter, easier-to-navigate cost surface.
-
-**Q8_0 (complete).** Figure `results/figures/real_phase2_convergence_Q8_0.png`, same protocol (per-eval cost 33.6s, close to Q4_K_M's):
-
-| Iteration | PSO (median) | GWO (median) | DE (median) |
-|---|---|---|---|
-| 1 | 0.1460 | 0.1489 | 0.1932 |
-| 2 | 0.1460 | 0.1080 | 0.1286 |
-| 3 | 0.1263 | 0.0502 | 0.1223 |
-| 4 | 0.0902 | 0.0499 | 0.1000 |
-| 5 | 0.0769 | 0.0499 | 0.0949 |
-
-On Q8_0, GWO again converges fastest and to the lowest median cost — reproducing the pattern seen on Q2_K rather than the premature-plateau pattern seen on Q4_K_M, strengthening the sense that GWO's behavior is variant-dependent rather than fixed. All three algorithms start substantially higher (0.15–0.19 at iteration 1) than on the other two variants and improve steadily rather than plateauing early, consistent with Q8_0 being the largest, slowest model in the sweep (Section 5.1) and its search space taking visibly longer to converge within the same 5-iteration budget.
-
-**Q3_K_M (complete).** Figure `results/figures/real_phase2_convergence_Q3_K_M.png`, same protocol (per-eval cost 51.0s):
-
-| Iteration | PSO (median) | GWO (median) | DE (median) |
-|---|---|---|---|
-| 1 | 0.1766 | 0.1357 | 0.0503 |
-| 2 | 0.1016 | 0.1131 | 0.0503 |
-| 3 | 0.1016 | 0.0982 | 0.0503 |
-| 4 | 0.1016 | 0.0448 | 0.0445 |
-| 5 | 0.1016 | 0.0448 | 0.0445 |
-
-DE starts and stays lowest throughout, plateauing after iteration 1 — an extreme version of the premature-convergence pattern, this time for DE rather than GWO. As Section 5.5 shows, this particular DE result turns out to be the most extreme case of the optimizer's-curse discrepancy in the entire dataset (its raw metrics reconstruct to 61.5x its recorded cost), so this flat, immediately-low DE curve is itself a visible symptom of the phenomenon: DE's very first iteration happened to sample a configuration whose noisy real-hardware measurement was far more favorable than that configuration's true performance, and the search then had no mechanism to detect or correct this within a single run.
-
-**Q4_0 (complete).** Figure `results/figures/real_phase2_convergence_Q4_0.png`. This variant's much lower per-eval cost (20.7s, roughly half of any other variant) let the adaptive budget (Section 3.7) allocate 8 iterations instead of the 5-iteration floor used elsewhere — a concrete demonstration of the adaptive-budget mechanism working as designed:
-
-| Iteration | PSO (median) | GWO (median) | DE (median) |
-|---|---|---|---|
-| 1 | 0.1895 | 0.3019 | 0.2639 |
-| 2 | 0.1767 | 0.1964 | 0.1740 |
-| 3 | 0.1006 | 0.1798 | 0.1583 |
-| 4 | 0.1006 | 0.1177 | 0.1583 |
-| 5 | 0.0910 | 0.1128 | 0.1487 |
-| 6 | 0.0910 | 0.1128 | 0.1152 |
-| 7 | 0.0909 | 0.0828 | 0.1152 |
-| 8 | 0.0843 | 0.0828 | 0.1152 |
-
-All three algorithms show genuine, gradual descent across the full 8 iterations rather than plateauing by iteration 4-5 as on the shorter-budget variants — consistent with more iterations giving real, visible convergence benefit when the per-evaluation cost allows for it. Notably, per Section 5.5's reconciliation check, Q4_0 is also the variant where recorded costs are **most trustworthy** (ratios 0.89-1.33x across all five methods, the best-behaved variant in the whole dataset) — plausibly because the extra iterations let the search settle into a genuinely stable region rather than exiting early on a single lucky noisy sample, reducing exposure to the optimizer's curse described in Section 5.5.
-
-**Q5_K_M (complete).** Figure `results/figures/real_phase2_convergence_Q5_K_M.png`, per-eval cost 35.0s:
-
-| Iteration | PSO (median) | GWO (median) | DE (median) |
-|---|---|---|---|
-| 1 | 0.1465 | 0.2927 | 0.2922 |
-| 2 | 0.1131 | 0.1489 | 0.2738 |
-| 3 | 0.1095 | 0.0970 | 0.2683 |
-| 4 | 0.1095 | 0.0890 | 0.2086 |
-| 5 | 0.1095 | 0.0775 | 0.2086 |
-
-GWO shows the clearest, most consistent descent of the three algorithms on this variant, ending lowest; DE improves only modestly and stays highest throughout — the weakest DE convergence of any variant so far. PSO plateaus early (iteration 3) similar to its behavior on Q4_K_M and Q3_K_M.
-
-**Q6_K (complete, final variant).** Figure `results/figures/real_phase2_convergence_Q6_K.png`, per-eval cost 35.5s:
-
-| Iteration | PSO (median) | GWO (median) | DE (median) |
-|---|---|---|---|
-| 1 | 0.1249 | 0.2821 | 0.2417 |
-| 2 | 0.0785 | 0.1483 | 0.2417 |
-| 3 | 0.0635 | 0.1483 | 0.2417 |
-| 4 | 0.0635 | 0.0608 | 0.2350 |
-| 5 | 0.0604 | 0.0608 | 0.1053 |
-
-PSO converges earliest and most smoothly here; DE again shows the weakest, latest convergence of the three (only dropping substantially at the final iteration). With all 7 quantization variants' Phase 2 search now complete, this closes the real hardware-in-the-loop experimental campaign for this paper.
+- **Q4_K_M:** DE reaches the lowest median final cost (0.0603) and, in its best single run, the lowest cost of any algorithm on this variant (0.0205, run 1 — Section 5.4). GWO converges earliest in wall-clock terms but plateaus at a visibly worse cost — the same premature-convergence pattern flagged on the asymmetric synthetic functions (Section 5.2) reproduces here. PSO is flat for three iterations before a single late improvement; with only 5 iterations this is a coarse, budget-constrained curve rather than a well-resolved one.
+- **Q2_K:** GWO overtakes both PSO and DE by iteration 4 rather than plateauing early as on Q4_K_M — the premature-convergence hypothesis does **not** generalize to this variant. All three converge to a narrower final band (0.0238–0.0488) than on Q4_K_M (0.0603–0.1080), consistent with Q2_K's smaller, cheaper model exposing a flatter cost surface.
+- **Q8_0:** GWO again converges fastest and to the lowest median cost, reproducing Q2_K's pattern rather than Q4_K_M's plateau — GWO's behavior is variant-dependent, not fixed. All three algorithms start substantially higher (0.15–0.19 at iteration 1) and improve steadily rather than plateauing, consistent with Q8_0 being the largest, slowest model in the sweep (Section 5.1).
+- **Q3_K_M:** DE starts and stays lowest throughout, plateauing after iteration 1 — an extreme premature-convergence case. As Section 5.5 shows, this specific DE result is also the most extreme optimizer's-curse discrepancy in the whole dataset (raw metrics reconstruct to 61.5x its recorded cost): DE's first iteration happened to sample a configuration whose noisy measurement was far more favorable than its true performance, with no within-run mechanism to detect this.
+- **Q4_0:** this variant's much lower per-eval cost (20.7s, roughly half of any other variant) let the adaptive budget (Section 3.7) allocate 8 iterations instead of the 5-iteration floor — the adaptive-budget mechanism working as designed. All three algorithms show genuine, gradual descent across the full 8 iterations rather than plateauing by iteration 4–5. Per Section 5.5's reconciliation check, Q4_0 is also the variant where recorded costs are **most trustworthy** (ratios 0.89–1.33x), plausibly because the extra iterations let the search settle into a genuinely stable region rather than exit early on a single lucky sample.
+- **Q5_K_M:** GWO shows the clearest, most consistent descent, ending lowest; DE improves only modestly and stays highest throughout — the weakest DE convergence of any variant. PSO plateaus early (iteration 3), similar to its behavior on Q4_K_M and Q3_K_M.
+- **Q6_K (final variant):** PSO converges earliest and most smoothly; DE again shows the weakest, latest convergence (dropping substantially only at the final iteration). With all 7 quantization variants' Phase 2 search complete, this closes the real hardware-in-the-loop experimental campaign.
 
 ### 5.4 Robustness across repeated runs
 
-**Q4_K_M (complete).** With `N_RUNS = 2` — reduced from the synthetic-validation protocol's 10 runs because each run here costs real Pi wall-clock time (Section 5.3), not milliseconds — variance can only be characterized coarsely, and this is stated as a limitation rather than glossed over (Section 6).
+Figures `results/figures/real_phase2_boxplot_{Q4_K_M,Q2_K,Q8_0,Q3_K_M,Q4_0,Q5_K_M,Q6_K}.png` and the table below give per-run best cost for all 7 variants. With `N_RUNS = 2` — reduced from the synthetic-validation protocol's 10 runs because each run here costs real Pi wall-clock time, not milliseconds — variance can only be characterized coarsely, stated as a limitation (Section 6) rather than glossed over.
 
-| Algorithm | Run 1 | Run 2 | Spread |
-|---|---|---|---|
-| PSO | 0.0350 | 0.1414 | 4.0x |
-| GWO | 0.1094 | 0.1066 | 1.03x |
-| DE | **0.0205** | 0.1000 | 4.9x |
+| Variant | PSO Run 1 | PSO Run 2 | PSO Spread | GWO Run 1 | GWO Run 2 | GWO Spread | DE Run 1 | DE Run 2 | DE Spread |
+|---|---|---|---|---|---|---|---|---|---|
+| Q4_K_M | 0.0350 | 0.1414 | 4.0x | 0.1094 | 0.1066 | 1.03x | **0.0205** | 0.1000 | 4.9x |
+| Q2_K | 0.0247 | 0.0729 | 3.0x | **0.0000** | 0.0477 | n/a (floor) | 0.0189 | 0.0658 | 3.5x |
+| Q8_0 | 0.0497 | 0.1042 | 2.1x | **0.0010** | 0.0988 | 99x | 0.1144 | 0.0755 | 1.5x |
+| Q3_K_M | 0.1231 | 0.0802 | 1.5x | 0.0210 | 0.0685 | 3.3x | **0.0026** | 0.0864 | 33x |
+| Q4_0 | 0.0667 | 0.1019 | 1.5x | 0.0120 | 0.1536 | 12.8x | 0.1262 | 0.1043 | 1.2x |
+| Q5_K_M | 0.0878 | 0.1312 | 1.5x | **0.0073** | 0.1477 | 20.2x | 0.0680 | 0.3491 | 5.1x |
+| Q6_K | 0.0198 | 0.1011 | 5.1x | **0.0168** | 0.1048 | 6.2x | 0.0467 | 0.1638 | 3.5x |
 
-Figure: `results/figures/real_phase2_boxplot_Q4_K_M.png`. The pattern **inverts** what Section 5.2's synthetic-function validation would predict: there, GWO was flagged as the most fragile/high-variance algorithm and PSO as uniformly low-variance. Here, on the real objective, GWO is by far the *most* consistent (1.03x spread) while both PSO and DE swing by roughly 4-5x between their two runs. Two non-exclusive explanations are worth stating plainly rather than picking one without evidence: (1) with only 2 runs, "variance" is really just the gap between two samples, not a stable estimate — a single unlucky PSO/DE run could flip this ranking, so this result should not be over-interpreted as a general PSO/DE weakness; (2) GWO's low variance here may be the *same* premature-convergence behavior noted in Section 5.3 rather than a virtue — an algorithm that plateaus early and stays put will naturally show low run-to-run spread, at the cost of the worse absolute values visible in Table 5.3's convergence data. Distinguishing these honestly requires more runs than the real-hardware compute budget allowed for this draft.
-
-**Q2_K (complete).**
-
-| Algorithm | Run 1 | Run 2 | Spread |
-|---|---|---|---|
-| PSO | 0.0247 | 0.0729 | 3.0x |
-| GWO | **0.0000** | 0.0477 | n/a (run 1 = exact floor) |
-| DE | 0.0189 | 0.0658 | 3.5x |
-
-Figure: `results/figures/real_phase2_boxplot_Q2_K.png`. GWO's run 1 landed on a cost of *exactly* 0.0000 — not approximately zero, but every normalized term simultaneously at its clipped floor (Section 3.6's `normalize()` clips to `[0, 1]`). This is worth explaining rather than reporting as a triumphant result: `meta.yaml`'s calibrated energy range for Q2_K has a minimum of 3.24 J/token, yet GWO's found configuration measured 1.26 J/token — *below* the calibrated minimum — so the normalized energy term clips to 0 rather than reflecting a true relative ranking. This is a direct consequence of `N_CALIBRATION_SAMPLES = 8`: eight random samples do not reliably bracket the true min/max of a 4-dimensional space, and an optimizer that later visits a more extreme corner (here, `n_ctx=128`, the lower bound of the search range) can fall outside the calibrated window entirely. The same clipping affected Grid search's best point independently (also `n_ctx=128`, also cost 0.0000 — see Section 5.5), which is itself informative: two unrelated methods converging on the identical corner is real evidence that corner is genuinely strong for Q2_K, even though the exact "0.0000" values are a calibration-sample-size artifact rather than a meaningful score of zero. Run-to-run spread otherwise follows the same qualitative pattern as Q4_K_M — GWO's second run (0.0477) is unremarkable, so the run-1 zero looks more like a lucky corner hit than a systematically superior algorithm on this variant.
-
-**Q8_0 (complete).**
-
-| Algorithm | Run 1 | Run 2 | Spread |
-|---|---|---|---|
-| PSO | 0.0497 | 0.1042 | 2.1x |
-| GWO | **0.0010** | 0.0988 | 99x |
-| DE | 0.1144 | 0.0755 | 1.5x |
-
-Figure: `results/figures/real_phase2_boxplot_Q8_0.png`. A **third, distinct pattern** from GWO — not an exact-zero calibration clip like Q2_K, but a near-zero (0.0010) that turns out to reveal a different, equally real methodological issue: comparing GWO's recorded cost against the *raw* metrics reported for that same configuration in `best_configs.csv` (Section 5.5) does not add up under the objective's own weights — reconstructing the weighted sum from the reported raw latency/quality/memory/energy values gives a cost around 0.18, not 0.0010. The discrepancy is measurement noise, not a bug: `best_configs.csv`'s raw columns come from a **fresh re-evaluation** of the winning configuration after the search completes (`run_real_phase2.py`'s `evaluator.evaluate(config)` call), not the exact measurement that produced the recorded search-time cost — and with `bench_repetitions=1` (Section 6), two measurements of nominally the same configuration on real hardware can differ enough to matter. This is the same single-measurement-noise limitation already disclosed in Section 6, now caught concretely rather than only asserted: **the "best" GWO run-1 cost on Q8_0 should not be trusted at face value**, and a repetitions-averaged re-measurement would be needed to know whether that configuration is genuinely strong or whether the search-time evaluation was a lucky noisy sample.
-
-The more trustworthy comparison, then, is DE and PSO's costs (0.0497–0.1144) alongside the baselines (Section 5.6) — GWO's numbers on Q8_0 are flagged as unreliable rather than reported as a win, in both runs (run 2's 0.0988 is unremarkable and consistent with the other two algorithms' range, reinforcing that run 1 was the outlier, not the norm).
-
-**Q3_K_M (complete).**
-
-| Algorithm | Run 1 | Run 2 | Spread |
-|---|---|---|---|
-| PSO | 0.1231 | 0.0802 | 1.5x |
-| GWO | 0.0210 | 0.0685 | 3.3x |
-| DE | **0.0026** | 0.0864 | 33x |
-
-Figure: `results/figures/real_phase2_boxplot_Q3_K_M.png`. DE's run 1 (0.0026) is the overall best recorded cost across all 7 variants — and, per Section 5.5's systematic reconciliation check, also the single most extreme case of the optimizer's-curse discrepancy found anywhere in this dataset (its own raw metrics reconstruct to 61.5x that recorded cost). Run 2's 0.0864 is unremarkable and in line with the other algorithms' range on this variant, the same pattern already seen for GWO on Q8_0: an extreme first-run result that does not replicate, flagging it as the outlier rather than the norm.
-
-**Q4_0 (complete).**
-
-| Algorithm | Run 1 | Run 2 | Spread |
-|---|---|---|---|
-| PSO | 0.0667 | 0.1019 | 1.5x |
-| GWO | 0.0120 | 0.1536 | 12.8x |
-| DE | 0.1262 | 0.1043 | 1.2x |
-
-Figure: `results/figures/real_phase2_boxplot_Q4_0.png`. Q4_0 shows the same qualitative pattern as every other variant — one algorithm (GWO here) produces a much lower run-1 result than run-2 — but Section 5.5's reconciliation check shows this is the one variant where even the low outlier run is largely corroborated by its own raw metrics (GWO's ratio 1.16x, essentially trustworthy), unlike Q8_0's or Q3_K_M's extreme cases. This is consistent with Q4_0's longer 8-iteration budget (Section 5.3) giving the search more chances to settle rather than exit on a single lucky sample.
-
-**Q5_K_M (complete).**
-
-| Algorithm | Run 1 | Run 2 | Spread |
-|---|---|---|---|
-| PSO | 0.0878 | 0.1312 | 1.5x |
-| GWO | **0.0073** | 0.1477 | 20.2x |
-| DE | 0.0680 | 0.3491 | 5.1x |
-
-Figure: `results/figures/real_phase2_boxplot_Q5_K_M.png`. GWO's run 1 (0.0073) is again a large outlier relative to run 2, the same qualitative pattern as Q8_0 and Q3_K_M; DE's run 2 (0.3491) is notably the *worst* single run recorded anywhere in this study, well above even its own run 1 — a reminder that the spread can be large in either direction, not just toward suspiciously good outliers.
-
-**Q6_K (complete, final variant).**
-
-| Algorithm | Run 1 | Run 2 | Spread |
-|---|---|---|---|
-| PSO | 0.0198 | 0.1011 | 5.1x |
-| GWO | 0.0168 | 0.1048 | 6.2x |
-| DE | 0.0467 | 0.1638 | 3.5x |
-
-Figure: `results/figures/real_phase2_boxplot_Q6_K.png`. All three algorithms show a broadly similar 3.5-6.2x run-to-run spread here, without the extreme (>10x) outliers seen on Q8_0, Q3_K_M, and Q5_K_M — the most "ordinary" robustness profile of any variant, though as Section 5.5 shows, this alone does not guarantee the recorded costs are trustworthy.
+- **Q4_K_M:** the pattern **inverts** what Section 5.2's synthetic-function validation would predict — there, GWO was flagged as the most fragile/high-variance algorithm and PSO as uniformly low-variance; here, GWO is by far the *most* consistent (1.03x spread) while both PSO and DE swing by roughly 4–5x. Two non-exclusive explanations: (1) with only 2 runs, "variance" is really just the gap between two samples, not a stable estimate; (2) GWO's low variance may be the same premature-convergence behavior noted above rather than a virtue — an algorithm that plateaus early and stays put will naturally show low run-to-run spread, at the cost of the worse absolute values in Section 5.3's convergence table. Distinguishing these honestly requires more runs than the real-hardware compute budget allowed for this draft.
+- **Q2_K:** GWO's run 1 landed on a cost of *exactly* 0.0000 — not approximately zero, but every normalized term simultaneously at its clipped floor (Section 3.6's `normalize()` clips to `[0, 1]`). `meta.yaml`'s calibrated energy range for Q2_K has a minimum of 3.24 J/token, yet GWO's found configuration measured 1.26 J/token — *below* the calibrated minimum — so the normalized energy term clips to 0 rather than reflecting a true relative ranking. This is a direct consequence of `N_CALIBRATION_SAMPLES = 8`: eight random samples do not reliably bracket the true min/max of a 4-dimensional space, and an optimizer that later visits a more extreme corner (here, `n_ctx=128`, the search range's lower bound) can fall outside the calibrated window entirely. The same clipping affected Grid search's best point independently (also `n_ctx=128`, also cost 0.0000 — Section 5.5) — two unrelated methods converging on the identical corner is real evidence that corner is genuinely strong for Q2_K, even though the exact "0.0000" values are a calibration-sample-size artifact rather than a meaningful score of zero.
+- **Q8_0:** a **third, distinct pattern** from GWO — not an exact-zero calibration clip like Q2_K, but a near-zero (0.0010) that reveals a different, equally real methodological issue: recomputing the scalarized cost from the raw metrics reported for that same configuration in `best_configs.csv` (Section 5.5) does not add up under the objective's own weights — it gives ≈0.18, not 0.0010. The discrepancy is measurement noise, not a bug: `best_configs.csv`'s raw columns come from a **fresh re-evaluation** of the winning configuration after the search completes, not the exact measurement that produced the recorded search-time cost — and with `bench_repetitions=1` (Section 6), two measurements of nominally the same configuration can differ enough to matter. **The "best" GWO run-1 cost on Q8_0 should not be trusted at face value**; the more trustworthy comparison is DE and PSO's costs (0.0497–0.1144) alongside the baselines (Section 5.6) — GWO's numbers on Q8_0 are flagged as unreliable rather than reported as a win, in both runs (run 2's 0.0988 is unremarkable, reinforcing that run 1 was the outlier).
+- **Q3_K_M:** DE's run 1 (0.0026) is the overall best recorded cost across all 7 variants — and, per Section 5.5's reconciliation check, also the single most extreme optimizer's-curse discrepancy found anywhere in this dataset (raw metrics reconstruct to 61.5x that recorded cost). Run 2's 0.0864 is unremarkable and in line with the other algorithms' range, the same pattern seen for GWO on Q8_0: an extreme first-run result that does not replicate, flagging it as the outlier rather than the norm.
+- **Q4_0:** the same qualitative pattern as every other variant — one algorithm (GWO here) produces a much lower run-1 result than run-2 — but Section 5.5's reconciliation check shows this is the one variant where even the low outlier run is largely corroborated by its own raw metrics (GWO's ratio 1.16x, essentially trustworthy), unlike Q8_0's or Q3_K_M's extreme cases — consistent with Q4_0's longer 8-iteration budget giving the search more chances to settle rather than exit on a single lucky sample.
+- **Q5_K_M:** GWO's run 1 (0.0073) is again a large outlier relative to run 2, the same qualitative pattern as Q8_0 and Q3_K_M; DE's run 2 (0.3491) is notably the *worst* single run recorded anywhere in this study, well above even its own run 1 — a reminder that the spread can be large in either direction, not just toward suspiciously good outliers.
+- **Q6_K:** all three algorithms show a broadly similar 3.5–6.2x run-to-run spread, without the extreme (>10x) outliers seen on Q8_0, Q3_K_M, and Q5_K_M — the most "ordinary" robustness profile of any variant, though as Section 5.5 shows, this alone does not guarantee the recorded costs are trustworthy.
 
 ### 5.5 Best configurations found
 
@@ -453,179 +334,69 @@ Figure: `results/figures/real_phase2_boxplot_Q6_K.png`. All three algorithms sho
 
 (ratio = reconstructed-from-raw-metrics cost ÷ recorded search-time cost; 1.0x = perfect reconciliation; "clipped" = both values round to the calibration floor of 0. Full per-row computation: `python src/analysis/check_reconciliation.py`, cross-checked by hand for the Q8_0 GWO case in Section 5.4.)
 
-The pattern is consistent with the **optimizer's curse** (the "winner's curse" of stochastic/simulation optimization): when a population-based metaheuristic iteratively converges toward a promising region of the search space, it repeatedly samples nearby-but-distinct configurations there, and the single lowest cost observed across all those noisy real-hardware evaluations is a biased, overly optimistic estimator of that configuration's *true* cost — being selected as "the minimum" partly reflects favorable measurement noise, not only genuine quality. A single independent re-measurement (`bench_repetitions=1`, Section 6) then regresses toward the true value, which is exactly what the reconstructed-from-raw-metrics column captures. Grid and Random search are less exposed on most variants (ratios closer to 1x) because they do not iteratively concentrate sampling around a converging optimum the way PSO/GWO/DE do — each evaluated point is comparatively independent rather than part of a narrowing sequence of nearby samples competing for "lowest so far." This is not an absolute rule, though: Q6_K's Random ratio (0.20x, reconstructed *lower* than recorded) shows that non-converging methods are not immune to noise, only less *systematically biased* by it — every ratio above 8x anywhere in the dataset (Q3_K_M's DE at 61.51x, Q8_0's GWO at 179.89x, Q3_K_M's GWO at 8.45x, Q5_K_M's GWO at 22.50x) belongs to a metaheuristic, never to Grid or Random, consistent with a real directional bias for the iterative methods rather than pure symmetric noise.
+The pattern is consistent with the **optimizer's curse** (the "winner's curse" of stochastic/simulation optimization): when a population-based metaheuristic iteratively converges toward a promising region of the search space, it repeatedly samples nearby-but-distinct configurations there, and the single lowest cost observed across all those noisy real-hardware evaluations is a biased, overly optimistic estimator of that configuration's *true* cost — being selected as "the minimum" partly reflects favorable measurement noise, not only genuine quality. A single independent re-measurement (`bench_repetitions=1`, Section 6) then regresses toward the true value, which is exactly what the reconstructed-from-raw-metrics column captures. Grid and Random search are less exposed on most variants (ratios closer to 1x) because they do not iteratively concentrate sampling around a converging optimum the way PSO/GWO/DE do. This is not an absolute rule, though: Q6_K's Random ratio (0.20x, reconstructed *lower* than recorded) shows non-converging methods are not immune to noise, only less *systematically biased* by it — every ratio above 8x anywhere in the dataset belongs to a metaheuristic, never to Grid or Random.
 
-**Practical consequence for how the rest of this section, and Section 5.6, should be read:** the *recorded cost* (used throughout Sections 5.3, 5.4, and 5.6 for algorithm and baseline comparison) reflects genuinely observed search-time performance and remains a fair basis for ranking methods against each other, since every method's recorded cost is subject to the same evaluation regime within a given variant. The *raw metric columns* in this section's best-configuration tables, however, come from a **separate, later re-evaluation** and should be read as "what this nominal configuration measured when checked again," not as "the exact measurement that won the search." Mechanistic explanations built on pairing a low recorded cost with specific raw-metric values (e.g., "wins mainly on energy") are only as reliable as that pairing — which the table above shows is frequently weak, especially for Q3_K_M and Q4_K_M, and especially for the metaheuristics (PSO/GWO/DE) more than Grid/Random. Below, where a mechanistic story is drawn from the raw columns, it is now explicitly marked as illustrative of the *plausible* trade-off space rather than a confirmed causal account; a repetitions-averaged re-measurement (flagged as future work, Section 7) would be needed before any specific winning configuration here should be trusted for actual deployment.
+**Practical consequence for how the rest of this section, and Section 5.6, should be read:** the *recorded cost* reflects genuinely observed search-time performance and remains a fair basis for ranking methods against each other, since every method's recorded cost is subject to the same evaluation regime within a given variant. The *raw metric columns* below, however, come from a **separate, later re-evaluation** and should be read as "what this nominal configuration measured when checked again," not as "the exact measurement that won the search" — this pairing is frequently weak, especially for Q3_K_M and Q4_K_M, and especially for the metaheuristics more than Grid/Random. Where a mechanistic story is drawn from the raw columns below, it is illustrative of the *plausible* trade-off space rather than a confirmed causal account; a repetitions-averaged re-measurement (Section 7) would be needed before any specific winning configuration here should be trusted for actual deployment.
 
-**Q4_K_M (complete)** — best configuration found by each method, with the full raw measurement (not just the scalarized cost) for that configuration. **Caveat per the finding above: DE's and PSO's raw metrics reconstruct to 7.0x and 6.1x their recorded costs respectively — the largest gaps in this table besides Q3_K_M/Q8_0's worst cases — so the "wins mainly on energy" story below should be read as illustrative, not confirmed. Random (0.96x) and Grid (0.80x) are comparatively reconcilable.**
+The table below gives the best configuration found by each method for every variant, with the full raw measurement (not just the scalarized cost) for that configuration. **Bold** marks this paper's best-supported recommendation per variant; † marks a row excluded from that framing because its recorded cost does not reconcile with its own raw metrics (Section 5.4).
 
-| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
-|---|---|---|---|---|---|---|---|---|---|
-| **DE** | 3 | 318 | 387 | f16 | **0.0205** | 53.86 | −22.3879 | 1248.5 | 1.639 |
-| PSO | 3 | 308 | 567 | q8_0 | 0.0350 | 54.61 | −22.3722 | 1252.5 | 2.689 |
-| GWO | 3 | 217 | 764 | q8_0 | 0.1066 | 54.97 | −22.3722 | 1249.6 | 3.568 |
-| Random | 3 | 311 | 663 | f16 | 0.1238 | 54.65 | −22.3879 | 1243.7 | 2.725 |
-| Grid | 4 | 512 | 128 | f16 | 0.3311 | 63.02 | −22.3879 | 1239.5 | 0.805 |
+| Variant | Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Q2_K | **GWO** | 4 | 153 | 128 | f16 | **0.0000** | 42.99 | −31.3272 | 468.8 | 1.257 |
+| Q2_K | Grid | 4 | 512 | 128 | f16 | 0.0000 | 44.83 | −31.3272 | 468.0 | 1.193 |
+| Q2_K | DE | 4 | 167 | 387 | f16 | 0.0189 | 42.83 | −31.3272 | 467.9 | 3.052 |
+| Q2_K | PSO | 4 | 221 | 409 | f16 | 0.0247 | 42.54 | −31.3272 | 468.9 | 3.173 |
+| Q2_K | Random | 4 | 318 | 387 | f16 | 0.0482 | 44.01 | −31.3272 | 476.9 | 3.158 |
+| Q3_K_M | **DE** | 4 | 228 | 128 | f16 | **0.0026** | 49.27 | −23.2585 | 785.7 | 1.115 |
+| Q3_K_M | GWO | 4 | 244 | 465 | f16 | 0.0210 | 49.77 | −23.2585 | 785.3 | 3.269 |
+| Q3_K_M | PSO | 4 | 205 | 831 | q8_0 | 0.0802 | 49.61 | −23.2639 | 784.2 | 6.250 |
+| Q3_K_M | Random | 4 | 273 | 819 | q8_0 | 0.1049 | 51.07 | −23.2639 | 784.6 | 6.308 |
+| Q3_K_M | Grid | 4 | 32 | 128 | f16 | 0.1596 | 49.12 | −23.2585 | 784.5 | 1.138 |
+| Q4_0 | **GWO** | 2 | 179 | 294 | q8_0 | **0.0120** | 48.83 | −22.3364 | 1159.5 | 0.964 |
+| Q4_0 | Random | 2 | 181 | 182 | f16 | 0.0157 | 48.57 | −22.3562 | 1160.6 | 0.663 |
+| Q4_0 | PSO | 2 | 299 | 380 | q8_0 | 0.0667 | 48.70 | −22.3364 | 1170.0 | 1.238 |
+| Q4_0 | DE | 2 | 47 | 930 | q8_0 | 0.1043 | 48.62 | −22.3364 | 1154.1 | 3.564 |
+| Q4_0 | Grid | 1 | 32 | 128 | f16 | 0.3098 | 57.03 | −22.3562 | 1146.4 | 0.718 |
+| Q4_K_M | **DE** | 3 | 318 | 387 | f16 | **0.0205** | 53.86 | −22.3879 | 1248.5 | 1.639 |
+| Q4_K_M | PSO | 3 | 308 | 567 | q8_0 | 0.0350 | 54.61 | −22.3722 | 1252.5 | 2.689 |
+| Q4_K_M | GWO | 3 | 217 | 764 | q8_0 | 0.1066 | 54.97 | −22.3722 | 1249.6 | 3.568 |
+| Q4_K_M | Random | 3 | 311 | 663 | f16 | 0.1238 | 54.65 | −22.3879 | 1243.7 | 2.725 |
+| Q4_K_M | Grid | 4 | 512 | 128 | f16 | 0.3311 | 63.02 | −22.3879 | 1239.5 | 0.805 |
+| Q5_K_M | GWO† | 3 | 313 | 323 | f16 | *0.0073* | 64.19 | −21.9608 | 1451.0 | 1.731 |
+| Q5_K_M | DE | 3 | 167 | 387 | f16 | 0.0680 | 63.17 | −21.9608 | 1450.8 | 2.086 |
+| Q5_K_M | PSO | 3 | 310 | 697 | q8_0 | 0.0878 | 62.52 | −21.9742 | 1449.2 | 3.753 |
+| Q5_K_M | **Random** | 3 | 66 | 419 | f16 | **0.0157** | 62.30 | −21.9608 | 1449.6 | 2.232 |
+| Q5_K_M | Grid | 4 | 32 | 128 | f16 | 0.2486 | 67.22 | −21.9608 | 1450.4 | 0.936 |
+| Q6_K | **GWO** | 3 | 202 | 359 | f16 | **0.0168** | 72.96 | −21.7199 | 1669.2 | 2.076 |
+| Q6_K | PSO | 3 | 309 | 455 | f16 | 0.0198 | 72.92 | −21.7199 | 1668.1 | 2.382 |
+| Q6_K | Random | 3 | 66 | 419 | f16 | 0.0371 | 72.87 | −21.7199 | 1667.0 | 2.355 |
+| Q6_K | DE | 3 | 48 | 387 | f16 | 0.0467 | 72.65 | −21.7199 | 1664.6 | 2.059 |
+| Q6_K | Grid | 4 | 32 | 128 | f16 | 0.2455 | 77.80 | −21.7199 | 1671.1 | 1.163 |
+| Q8_0 | GWO† | 2 | 108 | 128 | f16 | *0.0010* | 85.86 | −21.7013 | 2179.6 | 0.841 |
+| Q8_0 | **Grid** | 1 | 32 | 128 | f16 | **0.0239** | 87.51 | −21.7013 | 2179.3 | 0.987 |
+| Q8_0 | Random | 2 | 95 | 688 | f16 | 0.0340 | 86.04 | −21.7013 | 2164.8 | 2.916 |
+| Q8_0 | PSO | 2 | 279 | 797 | f16 | 0.0497 | 86.08 | −21.7013 | 2161.0 | 3.218 |
+| Q8_0 | DE | 2 | 47 | 867 | f16 | 0.0755 | 85.75 | −21.7013 | 2177.9 | 4.009 |
 
-With that caveat, the overall winner (DE) and the second-best (PSO) agree closely on threads (3, not the maximum 4) and n_batch (~310-320), differing mainly in n_ctx (387 vs. 567) and KV-cache type (f16 vs. q8_0). The raw metrics as re-measured show near-identical quality between f16 and q8_0 KV cache (−22.3879 vs. −22.3722, a 0.07% difference) and DE's smaller n_ctx plus f16 combination showing lower energy (1.639 vs. 2.689 J/token) at essentially the same latency — a plausible trade-off, though per the caveat above it is not confirmed to be what the search-time evaluation itself measured. Grid search's raw metrics (0.80x ratio, one of the more reconcilable rows in this table) are more trustworthy: it lands on the smallest n_ctx (128) and lowest energy of any method (0.805 J/tok) but the worst latency (63.02ms/tok) and worst recorded cost (0.3311) — a genuine, comparatively well-supported illustration of why no single raw metric should be read as "the" answer.
-
-**Q2_K (complete):**
-
-| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
-|---|---|---|---|---|---|---|---|---|---|
-| **GWO** | 4 | 153 | 128 | f16 | **0.0000** | 42.99 | −31.3272 | 468.8 | 1.257 |
-| Grid | 4 | 512 | 128 | f16 | 0.0000 | 44.83 | −31.3272 | 468.0 | 1.193 |
-| DE | 4 | 167 | 387 | f16 | 0.0189 | 42.83 | −31.3272 | 467.9 | 3.052 |
-| PSO | 4 | 221 | 409 | f16 | 0.0247 | 42.54 | −31.3272 | 468.9 | 3.173 |
-| Random | 4 | 318 | 387 | f16 | 0.0482 | 44.01 | −31.3272 | 476.9 | 3.158 |
-
-Every method's best configuration uses `threads=4, kv_cache_type=f16` — a much stronger cross-method consensus than Q4_K_M's split between f16 and q8_0. **Revised from an earlier draft of this section, per the systematic reconciliation check above: it is not just GWO and Grid that reconstruct to a clipped ~0 cost on this variant — PSO and DE do too** (ratios 0.00x each, Section 5.5's reconciliation table). Of the five methods, only Random search's recorded cost (0.0482) is corroborated by its own raw metrics (reconstructed 0.0485, ratio 1.01x). This means Q2_K's real, defensible finding is narrower than the earlier framing suggested: this dataset cannot reliably rank PSO vs. GWO vs. DE vs. Grid against each other on this variant — all four land at or near the calibration floor and their exact ordering is not resolvable from this data. Only Random's number is trustworthy at face value, and it is the *worst* of the five recorded costs — consistent with, though not proof of, all four other methods finding genuinely better configurations even where their relative margins over each other cannot be resolved.
-
-**Q3_K_M (complete)** — reconciliation ratios: PSO 2.89x, GWO 8.45x, DE 61.51x, Random 2.60x, Grid 0.93x (Section 5.5's general table). Only Grid's row here should be read as reliably paired with its own raw metrics; the other four, especially DE, should not.
-
-| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
-|---|---|---|---|---|---|---|---|---|---|
-| **DE** | 4 | 228 | 128 | f16 | **0.0026** | 49.27 | −23.2585 | 785.7 | 1.115 |
-| GWO | 4 | 244 | 465 | f16 | 0.0210 | 49.77 | −23.2585 | 785.3 | 3.269 |
-| PSO | 4 | 205 | 831 | q8_0 | 0.0802 | 49.61 | −23.2639 | 784.2 | 6.250 |
-| Random | 4 | 273 | 819 | q8_0 | 0.1049 | 51.07 | −23.2639 | 784.6 | 6.308 |
-| Grid | 4 | 32 | 128 | f16 | 0.1596 | 49.12 | −23.2585 | 784.5 | 1.138 |
-
-DE's recorded win (0.0026) is the lowest cost anywhere in the completed dataset, but per the 61.5x reconciliation ratio this is the *least* trustworthy single number in the entire study — its raw metrics, re-measured, describe a configuration whose actual cost is far higher (reconstructed ≈0.159, close to Grid's own recorded 0.1596). Read plainly: **DE's apparent win on Q3_K_M should not be trusted at face value without a repetitions-averaged re-measurement**, and Grid's genuinely reconcilable 0.1596 is arguably a more honest "known" number for this variant than any of the metaheuristics' recorded costs. All five best configurations again agree on `threads=4`, and four of five agree on `kv_cache_type=f16`.
-
-**Q4_0 (complete)** — reconciliation ratios: PSO 0.89x, GWO 1.16x, DE 1.02x, Random 1.33x, Grid 1.00x. Every row here is close to reconcilable — this is the one variant where the raw-metric columns below can be read with real confidence.
-
-| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
-|---|---|---|---|---|---|---|---|---|---|
-| **GWO** | 2 | 179 | 294 | q8_0 | **0.0120** | 48.83 | −22.3364 | 1159.5 | 0.964 |
-| Random | 2 | 181 | 182 | f16 | 0.0157 | 48.57 | −22.3562 | 1160.6 | 0.663 |
-| PSO | 2 | 299 | 380 | q8_0 | 0.0667 | 48.70 | −22.3364 | 1170.0 | 1.238 |
-| DE | 2 | 47 | 930 | q8_0 | 0.1043 | 48.62 | −22.3364 | 1154.1 | 3.564 |
-| Grid | 1 | 32 | 128 | f16 | 0.3098 | 57.03 | −22.3562 | 1146.4 | 0.718 |
-
-Because these numbers are trustworthy, a real mechanistic story can be told here with confidence: GWO's win comes from `threads=2` (not the maximum 4 — this variant's smaller, faster model apparently does not benefit from more threads, unlike the larger variants) combined with the lowest peak memory among the top four methods and among the lowest energy (0.964 J/tok). Random search is close behind (0.0157, essentially tied with GWO) and actually has the *lowest* raw energy (0.663 J/tok) of any method — a genuine illustration, on data solid enough to trust, of the same "no single raw metric is the answer" point Section 5.5 makes elsewhere: Random's lower energy doesn't win outright because its slightly worse quality (f16 vs. GWO's q8_0 cache, −22.3562 vs. −22.3364) and marginally worse latency tip the scalarized balance. Grid's `threads=1` corner is a clear loser on this variant (worst latency by far, 57ms vs. ~48.6-48.8ms for everyone else) — the only best-configs table across the two most-trustworthy variants where Grid is unambiguously, reliably the worst method.
-
-**Q5_K_M (complete)** — reconciliation ratios: PSO 1.40x, GWO 22.50x, DE 1.54x, Random 2.91x, Grid 1.32x. GWO's row should not be trusted; PSO, DE, and Grid are reasonably reconcilable.
-
-| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
-|---|---|---|---|---|---|---|---|---|---|
-| **GWO** (unreliable, ratio 22.5x) | 3 | 313 | 323 | f16 | *0.0073* | 64.19 | −21.9608 | 1451.0 | 1.731 |
-| DE | 3 | 167 | 387 | f16 | 0.0680 | 63.17 | −21.9608 | 1450.8 | 2.086 |
-| PSO | 3 | 310 | 697 | q8_0 | 0.0878 | 62.52 | −21.9742 | 1449.2 | 3.753 |
-| Random | 3 | 66 | 419 | f16 | 0.0157 | 62.30 | −21.9608 | 1449.6 | 2.232 |
-| Grid | 4 | 32 | 128 | f16 | 0.2486 | 67.22 | −21.9608 | 1450.4 | 0.936 |
-
-Excluding GWO's unreliable number, **Random search (0.0157) is actually the lowest recorded cost on this variant** — lower than any of the three metaheuristics, and its reconciliation ratio (2.91x) is imperfect but far better than GWO's. DE (0.0680, ratio 1.54x) is the best *reasonably trustworthy metaheuristic* result. This is the second variant (after Q8_0) where a naive baseline's recorded cost beats every metaheuristic once the least-reliable number is set aside — reinforcing Section 5.7's point that the metaheuristic-vs-baseline advantage is not a uniform property of this search space.
-
-**Q6_K (complete, final variant)** — reconciliation ratios: PSO 0.72x, GWO 1.12x, DE 0.00x (clipped), Random 0.20x, Grid 1.33x. This is one of the more reconcilable variants overall, though DE's clipping and Random's below-1 ratio both warrant the same caution as elsewhere.
-
-| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
-|---|---|---|---|---|---|---|---|---|---|
-| **GWO** | 3 | 202 | 359 | f16 | **0.0168** | 72.96 | −21.7199 | 1669.2 | 2.076 |
-| PSO | 3 | 309 | 455 | f16 | 0.0198 | 72.92 | −21.7199 | 1668.1 | 2.382 |
-| Random | 3 | 66 | 419 | f16 | 0.0371 | 72.87 | −21.7199 | 1667.0 | 2.355 |
-| DE | 3 | 48 | 387 | f16 | 0.0467 | 72.65 | −21.7199 | 1664.6 | 2.059 |
-| Grid | 4 | 32 | 128 | f16 | 0.2455 | 77.80 | −21.7199 | 1671.1 | 1.163 |
-
-GWO's win here (ratio 1.12x, trustworthy) is genuinely the best-supported result on this variant, closely followed by PSO (0.0198, ratio 0.72x, also trustworthy) — the two recorded costs are close enough (14% apart) and both reconcile well enough that this is a real, if narrow, GWO-over-PSO finding rather than noise. All five methods agree on `kv_cache_type=f16` — one of three variants (with Q2_K and Q8_0) where q8_0 never appears in any best configuration, against four variants (Q3_K_M, Q4_0, Q4_K_M, Q5_K_M) where it does — and threads=3 across all four non-grid methods.
-
-**Q8_0 (complete):**
-
-| Method | Threads | n_batch | n_ctx | KV type | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
-|---|---|---|---|---|---|---|---|---|---|
-| GWO (unreliable, see Sec. 5.4) | 2 | 108 | 128 | f16 | *0.0010* | 85.86 | −21.7013 | 2179.6 | 0.841 |
-| **Grid** | 1 | 32 | 128 | f16 | **0.0239** | 87.51 | −21.7013 | 2179.3 | 0.987 |
-| Random | 2 | 95 | 688 | f16 | 0.0340 | 86.04 | −21.7013 | 2164.8 | 2.916 |
-| PSO | 2 | 279 | 797 | f16 | 0.0497 | 86.08 | −21.7013 | 2161.0 | 3.218 |
-| DE | 2 | 47 | 867 | f16 | 0.0755 | 85.75 | −21.7013 | 2177.9 | 4.009 |
-
-GWO's row is listed but excluded from the "winner" framing per Section 5.4's finding — recomputing its scalarized cost from its own reported raw metrics under the paper's own weights gives ≈0.18, not the 0.0010 on record, a direct symptom of single-measurement noise between the search-time evaluation and the report-time re-evaluation of the same nominal configuration. **Taking Grid search's 0.0239 as the real best result on this variant is the more defensible reading of this table**, and it is a genuinely uncomfortable one for this paper's central claim: on Q8_0, naive grid search outperforms two of the three metaheuristics (DE at 0.0755, PSO at 0.0497), losing only to a GWO number that cannot be trusted. All five methods again converge on `threads≤2, kv_cache_type=f16` — one of three variants (with Q2_K and Q6_K) unanimous on f16 — but Grid's minimal `n_batch=32, n_ctx=128` corner wins on Q8_0's slower, more expensive model precisely because the largest variant's absolute latency/energy costs make the cheapest possible configuration disproportionately attractive, a dynamic the smaller variants didn't expose as sharply.
+- **Q4_K_M:** the overall winner (DE) and second-best (PSO) agree closely on threads (3, not the maximum 4) and n_batch (~310-320), differing mainly in n_ctx and KV-cache type. DE's smaller n_ctx plus f16 combination shows lower energy (1.639 vs. 2.689 J/token) at near-identical quality to q8_0 — a plausible trade-off, though DE's and PSO's raw metrics reconstruct to 7.0x/6.1x their recorded costs (table above), so this should be read as illustrative, not confirmed. Grid's more reconcilable row (0.80x) genuinely trades the smallest n_ctx and lowest energy for the worst latency and worst recorded cost — why no single raw metric should be read as "the" answer.
+- **Q2_K:** every method's best configuration uses `threads=4, kv_cache_type=f16` — a much stronger cross-method consensus than Q4_K_M's split. Per the reconciliation table, all of PSO/GWO/DE/Grid reconstruct to a clipped ~0 cost here; only Random's 0.0482 is corroborated by its own raw metrics (ratio 1.01x). This dataset therefore cannot reliably rank PSO/GWO/DE/Grid against each other on Q2_K — only that all four beat Random, whose number is trustworthy but is also the *worst* of the five recorded costs.
+- **Q3_K_M:** DE's recorded win (0.0026) is the lowest cost anywhere in the completed dataset, but per its 61.5x reconciliation ratio this is the *least* trustworthy single number in the entire study — its raw metrics reconstruct to ≈0.159, close to Grid's own recorded 0.1596. Grid's genuinely reconcilable 0.1596 is arguably a more honest "known" number here than any metaheuristic's recorded cost. All five configurations agree on threads=4, four of five on kv_cache_type=f16.
+- **Q4_0:** because these numbers are trustworthy (reconciliation table above), a real mechanistic story can be told with confidence: GWO's win comes from threads=2 (not the maximum 4) combined with low peak memory and low energy (0.964 J/tok). Random is close behind (0.0157) and has the *lowest* raw energy (0.663 J/tok) of any method, but its slightly worse quality and latency tip the scalarized balance — the same "no single raw metric is the answer" point on data solid enough to trust. Grid's threads=1 corner is unambiguously the worst method here (57ms vs. ~48.6-48.8ms for everyone else).
+- **Q5_K_M:** excluding GWO's unreliable 0.0073, **Random search (0.0157) is actually the lowest recorded cost on this variant**, beating every metaheuristic; its ratio (2.91x) is imperfect but far better than GWO's. DE (0.0680, ratio 1.54x) is the best reasonably-trustworthy metaheuristic result — the second variant (after Q8_0) where a naive baseline beats every metaheuristic once the least-reliable number is set aside.
+- **Q6_K:** GWO's win (ratio 1.12x, trustworthy) is genuinely the best-supported result on this variant, closely followed by PSO (0.0198, ratio 0.72x, also trustworthy) — close enough (14% apart) and both reconcile well enough that this is a real, if narrow, GWO-over-PSO finding rather than noise. All five methods agree on kv_cache_type=f16 and threads=3 (non-grid methods).
+- **Q8_0:** GWO's row is excluded from the "winner" framing — recomputing its scalarized cost from its own raw metrics gives ≈0.18, not the 0.0010 on record. **Taking Grid's 0.0239 as the real best result is the more defensible reading**, and it is genuinely uncomfortable for this paper's central claim: naive grid search outperforms two of the three metaheuristics (DE at 0.0755, PSO at 0.0497). All five methods converge on threads≤2, kv_cache_type=f16, but Grid's minimal corner wins on this largest, most expensive variant precisely because its absolute latency/energy costs make the cheapest configuration disproportionately attractive.
 
 ### 5.6 Comparison against baselines
 
-**Q4_K_M (complete).** At the matched evaluation budget (population 4 × iterations 5 = 20 evaluations for PSO/GWO/DE and Random; Grid realized 16/20 due to its shared-resolution constraint, Section 5.2.1):
+The table above already gives each method's best recorded cost per variant, and the reconciliation table each one's reconciliation ratio; this section states, per variant, how the metaheuristic-vs-baseline margin should actually be read once unreliable numbers (per Section 5.5) are set aside. At the matched evaluation budget (population 4 × iterations 5 = 20 evaluations for PSO/GWO/DE and Random; Grid realized 16/20 on Q4_K_M due to its shared-resolution constraint, Section 5.2.1), the cross-variant summary table (Section 5.7) gives the full picture; the per-variant detail is:
 
-| Method | Best f(x) | vs. best metaheuristic (DE) |
-|---|---|---|
-| DE | 0.0205 | — |
-| PSO | 0.0350 | 1.7x worse |
-| GWO | 0.1066 | 5.2x worse |
-| Random search | 0.1238 | 6.0x worse |
-| Grid search | 0.3311 | 16.1x worse |
-
-On this variant, all three metaheuristics beat both naive baselines, and the best of them (DE) beats grid search by over an order of magnitude — echoing, on the real hardware objective rather than only the synthetic functions of Section 5.2.1, the paper's central motivating claim that grid search does not scale to this kind of mixed integer/categorical space. The margin over random search is narrower than over grid (DE is 6.0x better vs. random, 16.1x vs. grid), consistent with Section 5.2.1's synthetic-function finding that random search — despite being naive — is a meaningfully stronger baseline than grid once dimensionality or a mixed/asymmetric range structure is involved.
-
-**Q2_K (complete):**
-
-| Method | Best f(x) | vs. best metaheuristic (GWO) |
-|---|---|---|
-| GWO | 0.0000 | — |
-| Grid search | 0.0000 | tied (calibration-clipped, Section 5.4) |
-| DE | 0.0189 | n/a — worse than a clipped 0 |
-| PSO | 0.0247 | n/a |
-| Random search | 0.0482 | n/a |
-
-Q2_K **complicates** the clean Q4_K_M narrative rather than confirming it, and more thoroughly than an earlier draft of this paragraph described: grid search *ties* the best metaheuristic here, not because grid search is genuinely competitive, but because GWO and grid happened to land on the same under-calibrated corner (Section 5.4). The natural next move — treating DE/PSO's 0.0189/0.0247 as the "real, non-clipped" comparison against random search — turns out **not** to be safe either: Section 5.5's systematic reconciliation check shows DE and PSO also reconstruct to a clipped ~0 cost from their own raw metrics, just like GWO and Grid. The only recorded cost on this variant corroborated by its own raw-metric re-measurement is Random search's 0.0482 (ratio 1.01x) — which means, honestly, **this dataset does not support a specific numeric margin for Q2_K at all**; it supports only the qualitative statement that all four search methods found configurations that measured better than random search's, without a resolvable ranking among themselves. Reported plainly rather than smoothed toward a specific percentage: **the metaheuristic-vs-baseline margin is not just "narrower" on Q2_K than Q4_K_M, it is not numerically resolvable on Q2_K at all** given this run's calibration budget and single-measurement design — a stronger and more honest version of the finding than the earlier "2.5-2.6x" figure implied. A small calibration-sample budget (`N_CALIBRATION_SAMPLES=8`) and single-measurement evaluations (`bench_repetitions=1`) together explain why; both are disclosed as limitations (Section 6) rather than smoothed over.
-
-**Q3_K_M (complete):**
-
-| Method | Best f(x) | Reconciliation ratio | Trust |
-|---|---|---|---|
-| DE | 0.0026 | 61.51x | **not trustworthy** |
-| GWO | 0.0210 | 8.45x | weak |
-| PSO | 0.0802 | 2.89x | weak |
-| Random search | 0.1049 | 2.60x | weak |
-| Grid search | 0.1596 | 0.93x | reconcilable |
-
-Naively read, DE beats grid search by 61x on this variant — the single largest metaheuristic-vs-baseline margin recorded anywhere in this study. Per Section 5.5, that specific number is also the *least* trustworthy result in the whole dataset, so this margin should not be reported as a finding at face value. What can be said honestly: DE, GWO, and PSO's recorded costs are all lower than grid's, consistent with (though not rigorous proof of) metaheuristics outperforming grid search here, but the exact multiplier is unknown without a repetitions-averaged re-measurement — a direct, concrete illustration of why Section 5.5's reconciliation check matters for the paper's headline claims, not just as a technical footnote.
-
-**Q4_0 (complete):**
-
-| Method | Best f(x) | Reconciliation ratio | Trust |
-|---|---|---|---|
-| GWO | 0.0120 | 1.16x | trustworthy |
-| Random search | 0.0157 | 1.33x | trustworthy |
-| PSO | 0.0667 | 0.89x | trustworthy |
-| DE | 0.1043 | 1.02x | trustworthy |
-| Grid search | 0.3098 | 1.00x | trustworthy |
-
-Q4_0 is the one variant in this study where the baseline comparison can be stated with real confidence: GWO beats grid search by 25.8x and random search by 1.3x; all three metaheuristics beat grid decisively (PSO 4.6x, DE 3.0x). This is also the variant with the longest search budget (8 iterations, Section 5.3) and the mildest optimizer's-curse exposure (Section 5.5) — consistent with the mechanistic story that more iterations reduce reliance on any single lucky noisy sample, giving both better search outcomes and more trustworthy reporting of them.
-
-**Q5_K_M (complete):**
-
-| Method | Best f(x) | Reconciliation ratio | Trust |
-|---|---|---|---|
-| GWO | 0.0073 | 22.50x | **not trustworthy** |
-| Random search | 0.0157 | 2.91x | weak |
-| DE | 0.0680 | 1.54x | reasonable |
-| PSO | 0.0878 | 1.40x | reasonable |
-| Grid search | 0.2486 | 1.32x | reasonable |
-
-Excluding GWO, **Random search wins on Q5_K_M** (0.0157) — beating every metaheuristic, including the best reasonably-trustworthy one (DE, 0.0680, 4.3x worse). This is the second variant (after Q8_0) where a naive baseline outright beats all three metaheuristics on recorded cost once the least-reliable number is excluded.
-
-**Q6_K (complete, final variant):**
-
-| Method | Best f(x) | Reconciliation ratio | Trust |
-|---|---|---|---|
-| GWO | 0.0168 | 1.12x | trustworthy |
-| PSO | 0.0198 | 0.72x | trustworthy |
-| Random search | 0.0371 | 0.20x | usable with caution |
-| DE | 0.0467 | 0.00x (clipped) | usable with caution |
-| Grid search | 0.2455 | 1.33x | trustworthy |
-
-On the final variant, the picture returns to a clean metaheuristic win: GWO beats grid search by 14.6x and random search by 2.2x, with PSO close behind (12.4x over grid). Both GWO and PSO's numbers are corroborated by reasonably close reconciliation ratios, making this one of the more trustworthy "metaheuristics win" results in the study, alongside Q4_0.
-
-**Q8_0 (complete):**
-
-| Method | Best f(x) | Note |
-|---|---|---|
-| GWO | 0.0010 | **unreliable — see Section 5.4; excluded from ranking** |
-| Grid search | **0.0239** | best *trustworthy* result |
-| Random search | 0.0340 | |
-| PSO | 0.0497 | |
-| DE | 0.0755 | |
-
-Excluding GWO's unreliable number, **grid search wins on Q8_0** — beating PSO by 2.1x and DE by 3.2x, and beating random search too (1.4x). This is the opposite of Q4_K_M's result and does not fit even Q2_K's more muted pattern. As the remaining sections below show, this pattern repeats on Q5_K_M (Section 5.6) and is not unique to Q8_0 — with all 7 variants in, they tell several different stories rather than one consistent trend, reported here exactly as found rather than smoothed toward a cleaner headline.
+- **Q4_K_M:** all three metaheuristics beat both naive baselines, and DE beats grid search by over an order of magnitude (16.1x) and random search by 6.0x — echoing, on the real hardware objective, the paper's central motivating claim that grid search does not scale to this kind of mixed integer/categorical space, with random search a meaningfully stronger baseline than grid.
+- **Q2_K:** **complicates** the clean Q4_K_M narrative rather than confirming it. Grid *ties* the best metaheuristic here only because GWO and grid happened to land on the same under-calibrated corner (both clip to 0.0000). Treating DE/PSO's 0.0189/0.0247 as a "real" non-clipped comparison is not safe either — they reconstruct to a clipped ~0 too. Only Random's 0.0482 is corroborated by its own raw metrics, so **this dataset does not support a specific numeric margin for Q2_K at all**, only the qualitative statement that all four methods beat random search without a resolvable ranking among themselves — a direct consequence of the small calibration budget (N_calib=8) and single-measurement evaluations (`bench_repetitions=1`), both disclosed as limitations (Section 6).
+- **Q3_K_M:** naively read, DE beats grid search by 61x — the single largest metaheuristic-vs-baseline margin in this study — but that specific number is also the *least* trustworthy result in the whole dataset (Section 5.5), so this margin should not be reported at face value. What can be said honestly: DE, GWO, and PSO's recorded costs are all lower than grid's, consistent with (not proof of) metaheuristics outperforming grid here, but the exact multiplier is unknown without a repetitions-averaged re-measurement.
+- **Q4_0:** the one variant where the baseline comparison can be stated with real confidence: GWO beats grid search by 25.8x and random search by 1.3x; all three metaheuristics beat grid decisively (PSO 4.6x, DE 3.0x). This is also the variant with the longest search budget (8 iterations) and mildest optimizer's-curse exposure — consistent with more iterations reducing reliance on a single lucky sample.
+- **Q5_K_M:** excluding GWO, **random search wins** (0.0157), beating every metaheuristic including the best reasonably-trustworthy one (DE, 0.0680, 4.3x worse) — the second variant (after Q8_0) where a naive baseline outright beats all three metaheuristics once the least-reliable number is excluded.
+- **Q6_K:** the picture returns to a clean metaheuristic win: GWO beats grid search by 14.6x and random search by 2.2x, with PSO close behind (12.4x over grid); both numbers are corroborated by reasonably close reconciliation ratios, one of the more trustworthy "metaheuristics win" results in the study alongside Q4_0.
+- **Q8_0:** excluding GWO's unreliable number, **grid search wins**, beating PSO by 2.1x, DE by 3.2x, and random search by 1.4x — the opposite of Q4_K_M's result and not fitting even Q2_K's more muted pattern. This pattern repeats on Q5_K_M and is not unique to Q8_0: across all 7 variants, several different stories emerge rather than one consistent trend, reported here exactly as found rather than smoothed toward a cleaner headline.
 
 ### 5.7 Discussion
 
@@ -643,14 +414,14 @@ Excluding GWO's unreliable number, **grid search wins on Q8_0** — beating PSO 
 
 **The paper's central empirical finding, now supported by all 7 variants, is not "how much do metaheuristics beat baselines" but "how reliably can this be measured at all" — and the answer is: it depends heavily on per-variant noise conditions that the two-phase design surfaces rather than averages away.** Two variants (Q4_0, Q6_K) give fully trustworthy, mechanistically interpretable metaheuristic wins; two variants (Q8_0, Q5_K_M) see a naive baseline outright beat every metaheuristic once the least-reliable number is excluded; the remaining three range from partially confounded (Q4_K_M, Q2_K) to actively misleading if taken at face value (Q3_K_M). Across all 21 metaheuristic reconciliation ratios in this study (Section 5.5's table), every ratio above 8x belongs to PSO, GWO, or DE — never to Grid or Random — a direct, now seven-variant-strong confirmation of the **optimizer's curse**: population-based metaheuristics' convergence behavior repeatedly samples near a promising region, and the single lowest cost recorded during that process is a biased, overly optimistic estimator of the true cost of that configuration. This is well known in stochastic and simulation optimization but, to this paper's knowledge, not previously documented as a concrete, measured failure mode for metaheuristic-tuned LLM deployment specifically — and with metaheuristics failing to beat baselines outright on 2 of 7 variants (Q5_K_M, Q8_0) once unreliable numbers are excluded, this is not a minor caveat but a first-order result of the study.
 
-Practical guidance, variant by variant, now stated with the appropriate confidence level per Section 5.5's reconciliation table rather than uniformly:
+Practical guidance, variant by variant, follows directly from Section 5.5's table (bold rows), stated here with the appropriate confidence level per Section 5.5's reconciliation table rather than uniformly:
 
-- **Q4_0** and **Q6_K** (the two variants with real confidence in a metaheuristic win): prefer GWO's found configuration in both cases (`threads=2, n_batch=179, n_ctx=294, kv_cache_type=q8_0` for Q4_0; `threads=3, n_batch=202, n_ctx=359, kv_cache_type=f16` for Q6_K) — genuinely the best-supported recommendations in this entire study.
-- **Q4_K_M**: DE's configuration (`threads=3, n_batch=318, n_ctx=387, kv_cache_type=f16`) is the best available guidance, but the specific "wins on energy" mechanism should be treated as illustrative, not confirmed.
+- **Q4_0** and **Q6_K**: real confidence in GWO's configuration in both cases — genuinely the best-supported recommendations in this entire study.
+- **Q4_K_M**: DE's configuration is the best available guidance, but its specific "wins on energy" mechanism should be treated as illustrative, not confirmed.
 - **Q2_K**: no specific configuration can be confidently recommended over another among PSO/GWO/DE/Grid; all that can be said is that all four likely beat random search's configuration.
-- **Q3_K_M**: Grid's configuration (`threads=4, n_batch=32, n_ctx=128, kv_cache_type=f16`) is paradoxically the most trustworthy number on this variant, precisely because DE's nominal "win" is the least reliable result in the whole dataset.
-- **Q5_K_M**: prefer Random search's configuration (`threads=3, n_batch=66, n_ctx=419, kv_cache_type=f16`) over any metaheuristic as actually measured here — the second variant, after Q8_0, where a naive baseline is the honest winner.
-- **Q8_0**: Grid's configuration (`threads=1, n_batch=32, n_ctx=128, kv_cache_type=f16`) is the real, defensible best result.
+- **Q3_K_M**: Grid's configuration is paradoxically the most trustworthy number on this variant, precisely because DE's nominal "win" is the least reliable result in the whole dataset.
+- **Q5_K_M**: prefer Random search's configuration over any metaheuristic as actually measured here — the second variant, after Q8_0, where a naive baseline is the honest winner.
+- **Q8_0**: Grid's configuration is the real, defensible best result.
 
 This directly answers the paper's core question — whether the two-phase decomposition's Pareto-retained multi-variant set (Section 5.1) actually mattered: **yes, decisively, and full 7-variant coverage makes the case stronger than a partial study could.** The best achievable configuration, which search method should be trusted at all, and even whether metaheuristics beat naive baselines at all differ substantially across variants — a single quantization variant chosen up front, before Phase 2 tuning, would have reported only one of seven qualitatively different outcomes as if it were the general finding, and depending on which variant was chosen, that report could have ranged from a strong, trustworthy metaheuristic win (Q4_0, Q6_K) to a naive baseline outright winning (Q8_0, Q5_K_M), with no way for the paper itself to know the difference absent the systematic reconciliation check performed here.
 

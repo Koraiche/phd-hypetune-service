@@ -503,9 +503,12 @@ def main() -> None:
     log(f"[real-phase2] retained variants from Phase 1: {retained}")
     log(f"[real-phase2] running real search on subset (priority order): {PHASE2_VARIANT_SUBSET}")
 
-    results_dir = REPO_ROOT / "results" / "phase2_runs"
-    figures_dir = REPO_ROOT / "results" / "figures"
+    # Overridable so a post-experiment hardened run can be pointed at a
+    # separate directory instead of overwriting the checked-in original data.
+    results_dir = Path(os.environ.get("PHASE2_RESULTS_DIR", REPO_ROOT / "results" / "phase2_runs"))
+    figures_dir = Path(os.environ.get("PHASE2_FIGURES_DIR", REPO_ROOT / "results" / "figures"))
     results_dir.mkdir(parents=True, exist_ok=True)
+    figures_dir.mkdir(parents=True, exist_ok=True)
 
     for variant_name in PHASE2_VARIANT_SUBSET:
         run_variant(variant_name, results_dir, figures_dir)
