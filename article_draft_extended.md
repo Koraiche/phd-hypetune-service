@@ -431,7 +431,7 @@ The mechanistic reason underlying all of this traces back to Section 3.7's cost 
 
 The fix proposed above was implemented and run on real hardware on 2026-09-07/08, to test directly whether it resolves the optimizer's curse rather than merely diagnosing it. The pipeline was hardened with `search_bench_repetitions=3` (each search-time evaluation is now the median of 3 `llama-bench` repetitions rather than 1), an independent `verification_bench_repetitions=5` re-measurement of every method's search-time winner (evaluated separately from the search itself, on a fresh `LlamaCppEvaluator` instance, mirroring exactly how Section 5.5's post-hoc reconciliation check works but now built into the pipeline and run *before* a winner is reported), `N_CALIBRATION_SAMPLES=24` (up from 8), a per-evaluation thermal gate (`src/measurement/thermal_guard.py`, gating every hardware call rather than only between variants), and crash-safe evaluation-level checkpointing (`src/phase2_search/checkpoint.py`). A winner is now only reported if its search-time cost and its independent 5-repetition verified cost agree within a predeclared absolute (0.03) or relative (25%) tolerance; otherwise the pipeline reports `unstable` for that candidate and, if no candidate passes, no winner at all rather than a potentially misleading one.
 
-This hardened pipeline was re-run on 4 of the 7 variants (Q3_K_M, Q4_0, Q5_K_M, Q6_K), writing to a separate `results/phase2_runs_hardened/` directory so the original checked-in data (Sections 5.3-5.6) is untouched. The table below summarizes the outcome; full per-method `search_cost`/`verified_cost`/status detail is in each variant's `best_configs.csv` in the repository (Data Availability).
+This hardened pipeline was re-run on 4 of the 7 variants (Q3_K_M, Q4_0, Q5_K_M, Q6_K), writing to a separate `results/phase2_runs_hardened/` directory so the original checked-in data (Sections 5.3-5.6) is untouched. The table below summarizes the outcome; full per-method `search_cost`/`verified_cost`/status detail is in each variant's `best_configs.csv` in the repository.
 
 | Variant | Verified/5 | Winner | Cost (search → verified) |
 |---|---|---|---|
@@ -478,16 +478,6 @@ Future work, in priority order suggested by the limitations already surfaced in 
 - **A downstream task-accuracy quality metric** instead of perplexity, which would re-open the temperature/top-p dimensions dropped from this paper's search space (Section 3.5) because perplexity cannot distinguish their effect on generation quality.
 - Extend to other edge platforms (Jetson Orin Nano, mobile SoCs) and other small models (Phi-3-mini, Qwen2.5-0.5B/1.5B, Gemma-2B) to test whether the variant-to-variant instability found here on a single model/board pair is specific to this hardware or a more general property of hardware-in-the-loop search under tight evaluation budgets.
 - Hybrid metaheuristics (e.g., PSO-DE hybrids), and joint search including model-level compression beyond quantization (structured pruning, LoRA-merged distillation) as an additional discrete Phase 1 axis.
-
----
-
-## Data Availability
-
-Code, configuration, and all raw measurement data (Phase 1 sweep results, Phase 2 convergence/robustness/best-configuration CSVs, the Section 5.8 hardened follow-up data, and figures) referenced in this paper are maintained at https://github.com/Koraiche/phd-hypetune-service, currently a private repository (confirmed 2026-08-17: returns 404 to unauthenticated access) that will be made public upon publication. The WikiText-2 corpus used for perplexity measurement (Section 4) is a standard, separately-licensed public dataset and is not redistributed in this repository.
-
-## Declaration on Generative AI
-
-The authors used Claude (Anthropic), a generative AI assistant, throughout the preparation of this work, including drafting and revising manuscript text, assisting with literature search and citation verification, and writing the data-analysis and experiment-automation code (including the metaheuristic implementations, the hardware measurement pipeline, and the reconciliation and hardened-verification checks reported in Section 5.5 and Section 5.8) under the authors' direction. All AI-assisted text, code, and analysis were reviewed, checked against the underlying raw measurement data, and edited by the authors, who take full responsibility for the accuracy, originality, and scientific integrity of this manuscript, including its experimental design, results, and conclusions.
 
 ---
 
