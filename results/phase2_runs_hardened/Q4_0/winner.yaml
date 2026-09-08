@@ -1,0 +1,16 @@
+status: verified_winner
+verification_absolute_tolerance: 0.03
+verification_relative_tolerance: 0.25
+verification_repetitions: 5
+winner:
+  method: PSO
+  search_cost: 0.03186097220104349
+  verified_cost: 0.0348937840733556
+  verification_status: verified
+  absolute_gap: 0.0030328118723121147
+  relative_gap: 0.08691553389384118
+  config:
+    threads: 2
+    n_batch: 32
+    n_ctx: 310
+    kv_cache_type: q8_0

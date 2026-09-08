@@ -1,0 +1,21 @@
+settings:
+  samples: 24
+  search_bench_repetitions: 3
+per_eval_cost_s: 140.8080564216667
+quality_cache:
+  f16: -23.2585
+  q8_0: -23.2639
+  q4_0: -23.7264
+normalization_ranges:
+  latency:
+  - 51.39652848315944
+  - 112.51725170761807
+  quality:
+  - -23.7264
+  - -23.2585
+  memory:
+  - 767.203125
+  - 790.359375
+  energy:
+  - 1.1114964103282736
+  - 5.742018289009832

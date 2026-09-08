@@ -118,15 +118,21 @@ python src/phase1_quant_sweep.py --config config/phase1.yaml
 python3 -u src/phase2_search/run_real_phase2.py
 ```
 
-The checked-in Phase 2 data remains the original experiment described by the
-article (`bench_repetitions=1`, 8 calibration samples, and only a
-between-variant cooldown). The runner has since been hardened for a follow-up
-run: its current defaults use 3 repetitions per search evaluation, 5 for an
+The checked-in Phase 2 data (`results/phase2_runs/`) remains the original
+experiment described throughout most of the article (`bench_repetitions=1`,
+8 calibration samples, and only a between-variant cooldown). The runner has
+since been hardened (3 repetitions per search evaluation, 5 for an
 independent winner check, 24 calibration samples, a thermal gate before every
-hardware evaluation, and an evaluation-level replay checkpoint. Consequently,
-a new run is a strengthened follow-up experiment, not a byte-for-byte
-reproduction of the checked-in Phase 2 CSVs. The article should only be updated
-to describe these settings after that follow-up has actually run on the Pi.
+hardware evaluation, and an evaluation-level replay checkpoint) and **this
+hardened version has now actually been run on the Pi**, on 2026-09-07/08, for
+4 of the 7 variants (Q3_K_M, Q4_0, Q5_K_M, Q6_K), writing to a separate
+`results/phase2_runs_hardened/` directory rather than overwriting the
+original data. The outcome is reported in the article's "Post-Experiment
+Verification (Hardened Follow-Up)" section: the fix correctly withholds
+unreliable winners, but Q5_K_M reconciles for *no* method at all (baselines
+included), and Q6_K's original "trustworthy" GWO win does not survive the
+stricter check. Extending to the remaining 3 variants (Q2_K, Q4_K_M, Q8_0)
+for full 7/7 hardened coverage is the paper's #1 remaining future-work item.
 
 Checkpoints are written under
 `results/phase2_runs/<variant>/checkpoints/`. Restart the same command after a
@@ -164,16 +170,27 @@ python src/analysis/check_reconciliation.py                # the optimizer's-cur
 
 ### Building the LaTeX article
 
+There are now two versions, both reporting the same experiment and numbers:
+
 ```
 cd latex
-pdflatex article.tex
-pdflatex article.tex   # second pass to resolve cross-references/citations
+pdflatex article.tex          # ~8-page conference-length version (hard page-limit target)
+pdflatex article.tex          # second pass to resolve cross-references/citations
+pdflatex article_extended.tex # ~20-page full/thesis version (same content, no cuts)
+pdflatex article_extended.tex
 ```
 
-Requires `IEEEtran.cls`, `booktabs`, `subcaption`, `algorithm`/`algpseudocode`
-(all in a standard TeX Live install). Figures are pulled from
-`../results/figures/` via `\graphicspath`. As of this writing it compiles
-cleanly to 24 pages with no errors and no undefined references.
+`article.tex`/`article_draft.md` are the compressed, submission-length pair;
+`article_extended.tex`/`article_draft_extended.md` are the fuller pair kept
+for thesis use. The short version drops the appendices (repo tree,
+pseudocode — pointed to via Data Availability instead) and replaces
+per-variant itemized discussion with shorter synthesized paragraphs; no
+numbers, tables, or the two grid figures are dropped. Requires
+`IEEEtran.cls`, `booktabs`, `subcaption` (all in a standard TeX Live
+install; the extended version also needs `algorithm`/`algpseudocode` for its
+appendix). Figures are pulled from `../results/figures/` via
+`\graphicspath`. As of this writing both compile cleanly with no errors and
+no undefined references.
 
 ---
 
@@ -289,13 +306,14 @@ submission:
   actual template/class file if it differs from generic IEEEtran (column
   widths, reference style, abstract length limits, keyword count limits all
   vary by venue).
-- **Page/word limits**: the paper is currently 24 pages in IEEEtran journal
-  two-column format. Check the target venue's page limit — some journals cap
-  at 8–12 pages for this format, which could require condensing the very
-  extensive Phase 2 per-variant results tables (Sections 5.3–5.6 currently
-  give full tables for all 7 variants; a page-limited venue might need these
-  moved to supplementary material with only the cross-variant summary table
-  kept in the main text).
+- **Page/word limits**: two versions now exist. `article.tex`/`article_draft.md`
+  is an ~8-page IEEEtran journal two-column version cut for a hard conference
+  page limit (appendices dropped, per-variant discussion condensed to short
+  paragraphs; every table, number, and both grid figures are retained).
+  `article_extended.tex`/`article_draft_extended.md` is the full ~20-page
+  version with the original per-variant itemized discussion and appendices,
+  kept for thesis use. Confirm which the target venue actually wants and
+  re-check its stated page limit against whichever version is submitted.
 - **Running header**: the `\markboth{Draft, \today}{}` line that put "DRAFT,
   [date]" on every page has been removed entirely (per the "no draft
   scaffolding" cleanup). IEEEtran's default running header is now in effect
@@ -380,12 +398,16 @@ priority order the paper itself gives (Conclusion, Section 7):
    gates every benchmark and refuses to continue after a cooldown timeout;
    it still needs validation in a new Pi run.
 
-Implementation status (2026-09-07): items 1, 2, and 8 are implemented for
-future runs, and item 5 is partially addressed by raising the calibration
-sample count from 8 to 24. They are not retroactively claimed as part of the
-completed experiment: hardware validation and a new Pi run are still required
-before the article or its existing result tables can adopt them. Items 3, 4,
-6, and 7 remain new research extensions rather than repository maintenance.
+Implementation status (2026-09-08): items 1, 2, 5, and 8 are implemented
+**and have now actually been run on the Pi** as the hardened follow-up
+(2026-09-07/08, 4 of 7 variants, `results/phase2_runs_hardened/`) reported in
+the article's "Post-Experiment Verification" section — hardware validation
+is done, not just code. The original `results/phase2_runs/` data and the
+main body of the article are correctly unchanged by this (a separate
+follow-up, not a reproduction). Remaining gap: the other 3 variants (Q2_K,
+Q4_K_M, Q8_0) are still only on the original, unhardened protocol. Items 3,
+4, 6, and 7 remain new research extensions rather than repository
+maintenance.
 
 ---
 

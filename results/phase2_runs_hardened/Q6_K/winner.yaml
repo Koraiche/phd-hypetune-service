@@ -1,0 +1,16 @@
+status: verified_winner
+verification_absolute_tolerance: 0.03
+verification_relative_tolerance: 0.25
+verification_repetitions: 5
+winner:
+  method: Random
+  search_cost: 0.04454917735098582
+  verified_cost: 0.057003138866156974
+  verification_status: verified
+  absolute_gap: 0.012453961515171155
+  relative_gap: 0.21847852176023116
+  config:
+    threads: 4
+    n_batch: 318
+    n_ctx: 387
+    kv_cache_type: f16

@@ -1,0 +1,25 @@
+variant: Q6_K
+population: 4
+iterations: 5
+n_runs: 2
+per_eval_cost_s: 98.22671741566653
+budget: 20
+grid_realized_evals: 16
+calibration_samples: 24
+search_bench_repetitions: 3
+verification_bench_repetitions: 5
+verification_absolute_tolerance: 0.03
+verification_relative_tolerance: 0.25
+normalization_ranges:
+  latency:
+  - 75.02125352112253
+  - 143.5612080388534
+  quality:
+  - -22.1007
+  - -21.7199
+  memory:
+  - 1672.15625
+  - 1687.015625
+  energy:
+  - 0.9885085428662451
+  - 4.060086272237435

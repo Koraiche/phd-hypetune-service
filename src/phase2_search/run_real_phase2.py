@@ -24,12 +24,17 @@ budget. Fixed here by:
    direct measurement to cut instrumentation overhead to ~6% of a bare call
    rather than a larger, unmeasured overhead at the original interval.
 
-POST-EXPERIMENT HARDENING 2026-09-07 (not used to produce the checked-in
-article results): search measurements now use repeated llama-bench runs,
-selected candidates receive a separate higher-repetition verification before
-any winner is reported, calibration uses 24 samples, every hardware call is
-temperature-gated, and deterministic objective-call traces make every
-optimizer and baseline resumable after a process or device crash.
+POST-EXPERIMENT HARDENING 2026-09-07 (search measurements now use repeated
+llama-bench runs, selected candidates receive a separate higher-repetition
+verification before any winner is reported, calibration uses 24 samples,
+every hardware call is temperature-gated, and deterministic objective-call
+traces make every optimizer and baseline resumable after a process or device
+crash). Run on real hardware 2026-09-07/08 for 4 of the 7 variants via
+PHASE2_RESULTS_DIR/PHASE2_FIGURES_DIR overrides pointed at
+results/phase2_runs_hardened/, reported in the article's Section on
+Post-Experiment Verification. The original results/phase2_runs/ data (used
+throughout the rest of the article) is from the unhardened, non-resumable
+run this hardening postdates and does not include these features.
 
 Usage:
     python3 -u src/phase2_search/run_real_phase2.py

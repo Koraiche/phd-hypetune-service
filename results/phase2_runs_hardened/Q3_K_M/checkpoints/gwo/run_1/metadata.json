@@ -1,0 +1,41 @@
+{
+  "bounds": {
+    "lower": [
+      1.0,
+      32.0,
+      128.0,
+      0.0
+    ],
+    "upper": [
+      4.0,
+      512.0,
+      1024.0,
+      2.999999999
+    ]
+  },
+  "iterations": 5,
+  "method": "GWO",
+  "normalization_ranges": {
+    "energy": [
+      1.1114964103282736,
+      5.742018289009832
+    ],
+    "latency": [
+      51.39652848315944,
+      112.51725170761807
+    ],
+    "memory": [
+      767.203125,
+      790.359375
+    ],
+    "quality": [
+      -23.7264,
+      -23.2585
+    ]
+  },
+  "population": 4,
+  "schema_version": 1,
+  "search_bench_repetitions": 3,
+  "seed": 100,
+  "variant": "Q3_K_M"
+}

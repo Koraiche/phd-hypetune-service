@@ -1,0 +1,25 @@
+variant: Q3_K_M
+population: 4
+iterations: 5
+n_runs: 2
+per_eval_cost_s: 140.8080564216667
+budget: 20
+grid_realized_evals: 16
+calibration_samples: 24
+search_bench_repetitions: 3
+verification_bench_repetitions: 5
+verification_absolute_tolerance: 0.03
+verification_relative_tolerance: 0.25
+normalization_ranges:
+  latency:
+  - 51.39652848315944
+  - 112.51725170761807
+  quality:
+  - -23.7264
+  - -23.2585
+  memory:
+  - 767.203125
+  - 790.359375
+  energy:
+  - 1.1114964103282736
+  - 5.742018289009832

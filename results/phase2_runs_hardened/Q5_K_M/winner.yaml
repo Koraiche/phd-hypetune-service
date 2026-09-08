@@ -1,0 +1,4 @@
+status: no_verified_winner
+verification_absolute_tolerance: 0.03
+verification_relative_tolerance: 0.25
+verification_repetitions: 5

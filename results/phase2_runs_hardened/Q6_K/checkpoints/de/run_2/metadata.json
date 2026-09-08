@@ -1,0 +1,41 @@
+{
+  "bounds": {
+    "lower": [
+      1.0,
+      32.0,
+      128.0,
+      0.0
+    ],
+    "upper": [
+      4.0,
+      512.0,
+      1024.0,
+      2.999999999
+    ]
+  },
+  "iterations": 5,
+  "method": "DE",
+  "normalization_ranges": {
+    "energy": [
+      0.9885085428662451,
+      4.060086272237435
+    ],
+    "latency": [
+      75.02125352112253,
+      143.5612080388534
+    ],
+    "memory": [
+      1672.15625,
+      1687.015625
+    ],
+    "quality": [
+      -22.1007,
+      -21.7199
+    ]
+  },
+  "population": 4,
+  "schema_version": 1,
+  "search_bench_repetitions": 3,
+  "seed": 101,
+  "variant": "Q6_K"
+}
