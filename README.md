@@ -174,23 +174,36 @@ There are now two versions, both reporting the same experiment and numbers:
 
 ```
 cd latex
-pdflatex article.tex          # ~8-page conference-length version (hard page-limit target)
+pdflatex article.tex          # 10-page submission version, target-venue (IJACSA) template
 pdflatex article.tex          # second pass to resolve cross-references/citations
-pdflatex article_extended.tex # ~20-page full/thesis version (same content, no cuts)
+pdflatex article_extended.tex # ~20-page full/thesis version (same content, richer per-variant prose)
 pdflatex article_extended.tex
 ```
 
-`article.tex`/`article_draft.md` are the compressed, submission-length pair;
-`article_extended.tex`/`article_draft_extended.md` are the fuller pair kept
-for thesis use. The short version drops the appendices (repo tree,
-pseudocode — pointed to via Data Availability instead) and replaces
-per-variant itemized discussion with shorter synthesized paragraphs; no
-numbers, tables, or the two grid figures are dropped. Requires
-`IEEEtran.cls`, `booktabs`, `subcaption` (all in a standard TeX Live
-install; the extended version also needs `algorithm`/`algpseudocode` for its
-appendix). Figures are pulled from `../results/figures/` via
-`\graphicspath`. As of this writing both compile cleanly with no errors and
-no undefined references.
+`article.tex`/`article_draft.md` are the submission pair, typeset against
+the exact template the target journal supplied in `latexFormat/`
+(`latexFormat/Paper_format.tex`, `IEEEtran.cls` copied into `latex/` so the
+build matches byte-for-byte): `\documentclass[conference, letterpaper]{IEEEtran}`,
+the journal's fancyhdr header/footer branding ("(IJACSA) International
+Journal of Advanced Computer Science and Applications, Vol. XXX, No. XXX,
+2026" / "www.ijacsa.thesai.org" / "N | P a g e"), `IEEEauthorblockN`/`A`
+author formatting with a footnote-marked corresponding author, and a
+`Declarations` section (Data Availability is filled in; Funding/Author
+Contributions/Conflict of Interest are left for the authors to complete
+rather than fabricated). It restores full per-variant Convergence,
+Robustness, and Comparison-Against-Baselines discussion (previously
+condensed to single paragraphs) and adds the two-phase pseudocode as an
+appendix, while fitting exactly 10 pages — every table, both grid figures,
+and all numbers from the extended version are present, just written more
+tersely. `article_extended.tex`/`article_draft_extended.md` are the fuller
+pair kept for thesis use (same generic IEEEtran `journal` class, no venue
+branding). Requires `IEEEtran.cls`, `booktabs`, `subcaption`,
+`threeparttable`, `fancyhdr`, `balance`/`flushend` (note: only load one of
+`balance`'s `\balance` command or `flushend`'s automatic balancing, not
+both — combining them corrupted the last page's footer in testing),
+`algorithm`/`algpseudocode` (all in a standard TeX Live install). Figures
+are pulled from `../results/figures/` via `\graphicspath`. As of this
+writing both compile cleanly with no errors and no undefined references.
 
 ---
 
@@ -293,27 +306,30 @@ What this is **not** a substitute for, and what still needs to happen:
   improve bibliographic authority but do not replace the still-needed
   database-wide forward/backward citation traversal above.
 
-### 3. Target-venue-specific formatting
+### 3. Target-venue-specific formatting — DONE for `article.tex`
 
-The LaTeX is currently `\documentclass[journal]{IEEEtran}` — a generic IEEE
-journal template, not tailored to any specific venue's house style. Before
-submission:
+`article.tex` is now typeset against the actual venue template the user
+supplied in `latexFormat/` (IJACSA — International Journal of Advanced
+Computer Science and Applications, published by TheSAI): `IEEEtran.cls`
+copied from `latexFormat/` into `latex/` so the build matches exactly,
+`\documentclass[conference, letterpaper]{IEEEtran}`, the journal's
+fancyhdr header/footer branding, `IEEEauthorblockN`/`A` author formatting,
+and a `Declarations` section per its convention. It compiles to exactly 10
+pages with no errors. `article_extended.tex` remains generic
+`\documentclass[journal]{IEEEtran}` (no venue branding) for thesis use —
+still worth re-typesetting against the same template if it is ever
+submitted anywhere rather than kept as a thesis chapter.
+Remaining before submission:
 
-- **Confirm the actual target venue** (IAES International Journal of
-  Artificial Intelligence, given this paper explicitly mirrors Nouna et
-  al. 2025's structure and is cited throughout as `ref11`? A different IEEE
-  Transactions/journal? A conference?) and re-typeset against that venue's
-  actual template/class file if it differs from generic IEEEtran (column
-  widths, reference style, abstract length limits, keyword count limits all
-  vary by venue).
-- **Page/word limits**: two versions now exist. `article.tex`/`article_draft.md`
-  is an ~8-page IEEEtran journal two-column version cut for a hard conference
-  page limit (appendices dropped, per-variant discussion condensed to short
-  paragraphs; every table, number, and both grid figures are retained).
-  `article_extended.tex`/`article_draft_extended.md` is the full ~20-page
-  version with the original per-variant itemized discussion and appendices,
-  kept for thesis use. Confirm which the target venue actually wants and
-  re-check its stated page limit against whichever version is submitted.
+- **Volume/issue number**: the header currently reads the template's own
+  placeholder, "Vol. XXX, No. XXX, 2026" — this is normal for a
+  pre-acceptance submission (IJACSA assigns the real volume/issue at
+  acceptance) and is not something to guess or fabricate now.
+- **Page/word limits**: confirmed satisfied — `article.tex` compiles to
+  exactly 10 pages under the real template, with every table, number, and
+  both grid figures from the extended version retained (per-variant
+  discussion is present but written more tersely than in
+  `article_extended.tex`).
 - **Running header**: the `\markboth{Draft, \today}{}` line that put "DRAFT,
   [date]" on every page has been removed entirely (per the "no draft
   scaffolding" cleanup). IEEEtran's default running header is now in effect

@@ -6,7 +6,7 @@
 ³High School of Technology-Dakhla, Dakhla, Morocco
 ᵃfahd.koraiche@gmail.com · ᵇdehbirac@yahoo.fr · ᶜdehbiamine1@gmail.com
 
-> **Note on this file:** this is the ~10-page conference-length version of the article, cut down from the fuller ~19-page extended/thesis version preserved at `article_draft_extended.md` (LaTeX: `latex/article_extended.tex`). Both versions report the same experiment and the same numbers; this one keeps the essential evidence (all tables, both grid figures, the full best-configurations table, the reconciliation table) but replaces most of the per-variant narrative prose with shorter synthesized paragraphs to fit a hard page budget.
+> **Note on this file:** this is the submission-length version of the article, formatted for the target venue's IJACSA-style template (`latexFormat/Paper_format.tex`, IEEEtran `conference` class with IJACSA header/footer branding) and compiling to exactly 10 pages under that template (`latex/article.tex`). A fuller ~20-page extended/thesis version with the same experiment and numbers, unrestricted per-variant narrative depth, and the full appendix is preserved at `article_draft_extended.md` (LaTeX: `latex/article_extended.tex`). Both versions restore full per-variant Convergence/Robustness/Baseline-Comparison discussion (this file trims wording more tightly than the extended version to fit the page budget, but drops no tables, figures, or numbers). This file's LaTeX counterpart also carries the two-phase pseudocode as an appendix (Section III's Algorithms 1–2) and a `Declarations` section per the target template's convention; Funding/CRediT/Conflict-of-Interest text is intentionally left for the authors to complete rather than fabricated.
 
 ## Abstract
 
@@ -63,7 +63,7 @@ We minimize a scalarized, constrained multi-objective function:
 
 **f(x) = α·L̂(x) + β·(1−Q̂(x)) + γ·M̂(x) + δ·Ê(x) + Penalty(x)**  (1)
 
-where L̂, Q̂, M̂, Ê are min–max normalized latency, quality, peak memory, and energy per token, and Penalty(x) = +∞ (hard reject, not a finite soft penalty) if peak RSS exceeds the RAM ceiling or the process crashes/OOMs/times out — a configuration that will actually OOM on this hardware must never be numerically outweighed by a good quality score. Weights α=0.35, β=0.35, γ=0.2, δ=0.1 are illustrative defaults, not tuned; Section IV-D's Grid-vs-DE energy/latency split on Q4_K_M shows the scalarization is doing real, non-trivial work, since different weights could plausibly favor Grid's low-energy point over DE's lower overall cost.
+where L̂, Q̂, M̂, Ê are min–max normalized latency, quality, peak memory, and energy per token, and Penalty(x) = +∞ (hard reject, not a finite soft penalty) if peak RSS exceeds the RAM ceiling or the process crashes/OOMs/times out — a configuration that will actually OOM on this hardware must never be numerically outweighed by a good quality score. Weights α=0.35, β=0.35, γ=0.2, δ=0.1 are illustrative defaults, not tuned; Section IV-E's Grid-vs-DE energy/latency split on Q4_K_M shows the scalarization is doing real, non-trivial work, since different weights could plausibly favor Grid's low-energy point over DE's lower overall cost.
 
 ### D. Metaheuristics and Evaluation-Cost Argument
 
@@ -107,15 +107,47 @@ All three optimizers reach values effectively indistinguishable from each functi
 
 At a matched budget of 4,000 evaluations, grid search collapses on Sphere (dim 10): a shared-resolution grid can only afford 2 points per axis, so no grid point can land near the interior optimum (best cost 1000, exactly the corner-stuck value); random search does far better (median 50.63) but still loses by 8–11 orders of magnitude to any metaheuristic. On FindValues (dim 5, asymmetric bounds — the closest synthetic proxy to the real Phase 2 space), grid search's best (4554) is worse than random search's *median* (1523) — a direct empirical warning against grid search on Phase 2's real, similarly asymmetric parameter space.
 
-### C. Phase 2: Convergence and Robustness
+### C. Phase 2: Convergence
 
-Figure 2 plots median best-cost-so-far (2 runs) for PSO/GWO/DE on the real hardware-measured objective across all 7 variants; Figure 3 and Table IV give per-run spread. Patterns vary substantially by variant: on Q4_K_M and Q3_K_M, GWO/DE respectively plateau early (the same premature-convergence behavior seen on synthetic functions); on Q2_K and Q8_0, GWO instead converges *later* but to the lowest cost, so this behavior is variant-dependent, not fixed. Q4_0's much lower per-evaluation cost (20.7s) let the adaptive budget allocate 8 iterations instead of the 5-iteration floor, and all three algorithms show genuine gradual descent rather than early plateaus — this is also, as Section IV-D shows, the variant with the most trustworthy recorded costs. Run-to-run spread (Table IV) is large and inconsistent across variants (1.03x–99x), including one striking inversion of the synthetic-validation expectation: on Q4_K_M, GWO — flagged as fragile on synthetic functions — is the *most* consistent algorithm here (1.03x spread) while PSO and DE swing 4–5x. With only N_runs=2, this spread is the gap between two samples, not a statistically grounded estimate (Section VI).
+Figure 2 plots median best-cost-so-far (2 runs) for PSO/GWO/DE across all 7 variants; Table IV gives the median final-iteration cost. Patterns vary substantially by variant:
+
+- **Q4_K_M:** DE reaches the lowest median final cost (0.0603) and, in its best single run, the lowest cost of any algorithm on this variant (0.0205). GWO converges earliest but plateaus at a visibly worse cost — the same premature-convergence pattern flagged on the synthetic functions reproduces here.
+- **Q2_K:** GWO overtakes both PSO and DE by iteration 4 rather than plateauing early as on Q4_K_M — the premature-convergence hypothesis does *not* generalize to this variant.
+- **Q8_0:** GWO again converges fastest and lowest, reproducing Q2_K's pattern rather than Q4_K_M's plateau — GWO's behavior is variant-dependent, not fixed.
+- **Q3_K_M:** DE starts and stays lowest, plateauing after iteration 1 — later shown (Section IV-E) to be the most extreme optimizer's-curse discrepancy in the whole dataset (61.5x its recorded cost).
+- **Q4_0:** a much lower per-evaluation cost (20.7s) let the adaptive budget allocate 8 iterations instead of the 5-iteration floor; all three algorithms show genuine gradual descent rather than an early plateau — also the variant with the most trustworthy recorded costs.
+- **Q5_K_M:** GWO shows the clearest, most consistent descent; DE improves only modestly and stays highest throughout, the weakest DE convergence of any variant.
+- **Q6_K (final variant):** PSO converges earliest and most smoothly; DE again shows the weakest, latest convergence, dropping substantially only at the final iteration.
 
 *Figure 2: Real Phase 2 convergence, all 7 completed variants (median of 2 runs).* (`results/figures/real_phase2_convergence_*.png`)
 
+**Table IV: Real Phase 2 convergence summary — median best cost of 2 runs at the final iteration, all 7 variants**
+
+| Variant | Iters | PSO | GWO | DE | Per-eval (s) |
+|---|---|---|---|---|---|
+| Q4_K_M | 5 | 0.0882 | 0.1080 | 0.0603 | 32.9 |
+| Q2_K | 5 | 0.0488 | 0.0238 | 0.0423 | 59.9 |
+| Q8_0 | 5 | 0.0769 | 0.0499 | 0.0949 | 33.6 |
+| Q3_K_M | 5 | 0.1016 | 0.0448 | 0.0445 | 51.0 |
+| Q4_0 | 8 | 0.0843 | 0.0828 | 0.1152 | 20.7 |
+| Q5_K_M | 5 | 0.1095 | 0.0775 | 0.2086 | 35.0 |
+| Q6_K | 5 | 0.0604 | 0.0608 | 0.1053 | 35.5 |
+
+### D. Phase 2: Robustness Across Repeated Runs
+
+Figure 3 and Table V give per-run best cost. With N_runs=2 — reduced from the synthetic-validation protocol's 10 because each run here costs real Pi wall-clock time — variance can only be characterized coarsely (Section VI):
+
+- **Q4_K_M:** the pattern *inverts* synthetic-validation expectations — GWO, flagged as fragile on synthetic functions, is by far the *most* consistent here (1.03x spread) while PSO and DE swing 4–5x between runs.
+- **Q2_K:** GWO's run 1 lands on a cost of *exactly* 0.0000 — every normalized term simultaneously at its clipped floor, a direct consequence of the small calibration sample (N_calib=8) rather than a true global optimum; Grid independently hit the same corner.
+- **Q8_0:** GWO's near-zero (0.0010) reveals a different issue — recomputing its cost from its own raw metrics gives ≈0.18, not 0.0010, pure single-measurement noise between the search-time and report-time evaluation of the same configuration.
+- **Q3_K_M:** DE's run 1 (0.0026) is the overall best recorded cost across all 7 variants, and (per Section IV-E) also the single most extreme optimizer's-curse discrepancy in the dataset; run 2 (0.0864) is unremarkable, flagging run 1 as the outlier.
+- **Q4_0:** the same outlier pattern recurs (GWO run 1 << run 2), but this is the one variant where even the low outlier run is largely corroborated by its own raw metrics — consistent with its longer 8-iteration budget.
+- **Q5_K_M:** GWO's run 1 (0.0073) is again a large outlier; DE's run 2 (0.3491) is notably the *worst* single run recorded anywhere in this study.
+- **Q6_K:** all three algorithms show a broadly similar 3.5–6.2x spread, without the extreme (>10x) outliers seen on Q8_0, Q3_K_M, and Q5_K_M — the most "ordinary" robustness profile of any variant.
+
 *Figure 3: Real Phase 2 robustness, all 7 completed variants (2 runs each).* (`results/figures/real_phase2_boxplot_*.png`)
 
-**Table IV: Per-run best cost and run-to-run spread, all 7 variants**
+**Table V: Per-run best cost and run-to-run spread, all 7 variants**
 
 | Variant | PSO Run 1 | PSO Run 2 | PSO Spread | GWO Run 1 | GWO Run 2 | GWO Spread | DE Run 1 | DE Run 2 | DE Spread |
 |---|---|---|---|---|---|---|---|---|---|
@@ -127,11 +159,11 @@ Figure 2 plots median best-cost-so-far (2 runs) for PSO/GWO/DE on the real hardw
 | Q5_K_M | 0.0878 | 0.1312 | 1.5x | **0.0073** | 0.1477 | 20.2x | 0.0680 | 0.3491 | 5.1x |
 | Q6_K | 0.0198 | 0.1011 | 5.1x | **0.0168** | 0.1048 | 6.2x | 0.0467 | 0.1638 | 3.5x |
 
-### D. The Optimizer's Curse: Best Configurations and Reconciliation
+### E. The Optimizer's Curse: Best Configurations and Reconciliation
 
-Q2_K's exact-zero GWO cost (Table IV) and Q8_0's near-zero GWO cost prompted a systematic check, run across all 7 variants: recompute each method's scalarized cost from its own reported raw metrics (`best_configs.csv`, run through the objective's actual weights and calibrated ranges) and compare against the recorded search-time cost (Table V).
+Q2_K's exact-zero GWO cost (Table V) and Q8_0's near-zero GWO cost prompted a systematic check, run across all 7 variants: recompute each method's scalarized cost from its own reported raw metrics (`best_configs.csv`, run through the objective's actual weights and calibrated ranges) and compare against the recorded search-time cost (Table VI).
 
-**Table V: Reconstructed-cost / recorded-cost ratio, all 7 variants**
+**Table VI: Reconstructed-cost / recorded-cost ratio, all 7 variants**
 
 | Variant | PSO | GWO | DE | Random | Grid |
 |---|---|---|---|---|---|
@@ -145,9 +177,17 @@ Q2_K's exact-zero GWO cost (Table IV) and Q8_0's near-zero GWO cost prompted a s
 
 The pattern is consistent with the **optimizer's curse**: a population-based metaheuristic's iterative convergence toward a promising region repeatedly samples nearby-but-distinct configurations there, and the single lowest cost observed across those noisy real-hardware evaluations is a biased, overly optimistic estimator of that configuration's *true* cost. Grid and Random search are far less exposed (ratios mostly near 1x) because they do not iteratively concentrate sampling around a converging optimum — every ratio above 8x anywhere in this dataset belongs to a metaheuristic, never to Grid or Random. The recorded cost remains a fair basis for ranking methods against each other within a variant (every method is subject to the same evaluation regime), but the raw-metric columns come from a separate, later re-evaluation and should be read as illustrative of the plausible trade-off space, not confirmed causal fact.
 
-Table VI gives the best configuration found by each method for every variant with its full raw re-measurement. **Bold** marks this paper's best-supported recommendation per variant; † marks a row excluded because its recorded cost does not reconcile with its own raw metrics. Two variants (Q4_0, Q6_K) give fully trustworthy, mechanistically interpretable metaheuristic wins (GWO, ratios 1.16x/1.12x): GWO's Q4_0 win comes from threads=2 (not the maximum 4) with low memory and energy, while Grid's threads=1 corner is unambiguously worst. Two variants invert the paper's central motivating claim: on **Q5_K_M**, excluding GWO's unreliable 0.0073, Random search (0.0157) is the lowest recorded cost, beating every metaheuristic; on **Q8_0**, excluding GWO's unreliable 0.0010, Grid search (0.0239) beats two of the three metaheuristics outright — a genuinely uncomfortable result for this paper's motivating claim, and the largest, most expensive variant, where Grid's minimal corner is disproportionately attractive. **Q3_K_M** shows the sharpest single warning: DE's recorded win (0.0026, the lowest cost anywhere in the dataset) reconstructs to ≈0.159 from its own raw metrics — a 61.5x discrepancy, the least trustworthy number in the entire study, with Grid's reconcilable 0.1596 arguably a more honest "known" result for that variant. **Q2_K** shows all of PSO/GWO/DE/Grid reconstructing to a clipped ~0 cost from a calibration-sample-size artifact (N_calib=8, Section VI); only Random's number is trustworthy, and it is also the worst of the five.
+Table VII gives the best configuration found by each method for every variant with its full raw re-measurement. **Bold** marks this paper's best-supported recommendation per variant; † marks a row excluded because its recorded cost does not reconcile with its own raw metrics.
 
-**Table VI: Best configurations found, all 7 variants (raw re-measurement of each method's search-time winner)**
+- **Q4_K_M:** the overall winner (DE) and second-best (PSO) agree closely on threads (3, not the maximum 4) and n_batch (≈310–320), differing mainly in n_ctx and KV-cache type; DE's raw metrics reconstruct to 7.0x its recorded cost though, so its "wins on energy" story is illustrative, not confirmed. Grid's more reconcilable row (0.80x) genuinely trades the smallest n_ctx and lowest energy for the worst latency.
+- **Q2_K:** every method's best configuration uses threads=4, kv_cache_type=f16; PSO/GWO/DE/Grid all reconstruct to a clipped ~0 cost, so this dataset cannot reliably rank them against each other — only Random's number is trustworthy, and it is also the worst of the five.
+- **Q3_K_M:** DE's recorded win (0.0026) is the lowest cost anywhere in the dataset, but per its 61.5x reconciliation ratio this is the *least* trustworthy single number in the entire study; Grid's genuinely reconcilable 0.1596 is arguably a more honest "known" number here.
+- **Q4_0:** because these numbers are trustworthy, a real mechanistic story can be told with confidence: GWO's win comes from threads=2 (not the maximum 4) with low peak memory and energy (0.964 J/tok); Grid's threads=1 corner is unambiguously the worst method here.
+- **Q5_K_M:** excluding GWO's unreliable 0.0073, **Random search (0.0157) is actually the lowest recorded cost**, beating every metaheuristic — the second variant (after Q8_0) where a naive baseline wins once the least-reliable number is set aside.
+- **Q6_K:** GWO's win (ratio 1.12x, trustworthy) is genuinely the best-supported result on this variant, closely followed by PSO (ratio 0.72x, also trustworthy) — a real, if narrow, GWO-over-PSO finding rather than noise.
+- **Q8_0:** **Taking Grid's 0.0239 as the real best result is the more defensible reading**, and it is genuinely uncomfortable for this paper's central claim: naive grid search outperforms two of the three metaheuristics on this largest, most expensive variant.
+
+**Table VII: Best configurations found, all 7 variants (raw re-measurement of each method's search-time winner)**
 
 | Variant | Method | Threads | Batch | Ctx | KV | f(x) | Latency (ms/tok) | Quality (−PPL) | Peak RSS (MB) | Energy (J/tok) |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -187,9 +227,21 @@ Table VI gives the best configuration found by each method for every variant wit
 | Q8_0 | PSO | 2 | 279 | 797 | f16 | 0.0497 | 86.08 | −21.7013 | 2161.0 | 3.218 |
 | Q8_0 | DE | 2 | 47 | 867 | f16 | 0.0755 | 85.75 | −21.7013 | 2177.9 | 4.009 |
 
-### E. Discussion
+### F. Comparison Against Baselines
 
-**Table VII: Cross-variant summary**
+At the matched evaluation budget (population 4 × iterations 5 = 20 evaluations for PSO/GWO/DE and Random), the metaheuristic-vs-baseline margin varies as sharply across variants as the reconciliation ratios above:
+
+- **Q4_K_M:** all three metaheuristics beat both naive baselines; DE beats grid search by 16.1x and random search by 6.0x — the clean version of this paper's central motivating claim.
+- **Q2_K:** **complicates** that clean narrative: grid *ties* the best metaheuristic only because both land on the same under-calibrated corner; the dataset does not support a specific numeric margin for this variant at all.
+- **Q3_K_M:** naively read, DE beats grid by 61x — the largest margin in the study — but that number is also the least trustworthy result in the whole dataset, so it should not be reported at face value.
+- **Q4_0:** the one variant where the margin is fully trustworthy: GWO beats grid by 25.8x and random by 1.3x; all three metaheuristics beat grid decisively.
+- **Q5_K_M:** excluding GWO, **random search wins outright**, beating every metaheuristic including the best reasonably-trustworthy one (DE, 4.3x worse).
+- **Q6_K:** a clean metaheuristic win returns: GWO beats grid by 14.6x and random by 2.2x, corroborated by reasonably close reconciliation ratios.
+- **Q8_0:** excluding GWO's unreliable number, **grid search wins**, beating PSO by 2.1x and DE by 3.2x — the opposite of Q4_K_M's result.
+
+### G. Discussion
+
+**Table VIII: Cross-variant summary**
 
 | Variant | Best trustworthy method | Margin over grid | Reconciliation |
 |---|---|---|---|
@@ -203,9 +255,11 @@ Table VI gives the best configuration found by each method for every variant wit
 
 **The paper's central empirical finding, supported by all 7 variants, is not "how much do metaheuristics beat baselines" but "how reliably can this be measured at all"** — and the answer depends heavily on per-variant noise conditions that the two-phase design surfaces rather than averages away. Two variants give fully trustworthy metaheuristic wins; two see a naive baseline outright beat every metaheuristic once unreliable numbers are excluded; the remaining three range from partially confounded to actively misleading if taken at face value. This is, to our knowledge, the first concrete, measured account of the optimizer's curse as a failure mode specific to hardware-in-the-loop metaheuristic-tuned LLM deployment, rather than a generic risk asserted in the abstract. The mechanistic reason traces back to Section III-D's cost argument: real hardware evaluation is expensive, so Phase 2's necessarily small budget is far more exposed to per-variant noise, calibration undersampling, and the optimizer's curse than the millisecond-scale, thousands-of-evaluations budget used in synthetic validation or in [11]. A single quantization variant chosen up front, without the two-phase structure, would have reported only one of seven qualitatively different outcomes as if it were the general finding — the two-phase decomposition's full 7-variant coverage is what makes this cross-variant picture visible at all.
 
-### F. Post-Experiment Verification (Hardened Follow-Up)
+### H. Post-Experiment Verification (Hardened Follow-Up)
 
 To directly test whether the top future-work fix proposed above actually resolves the optimizer's curse rather than merely diagnosing it, the pipeline was hardened (`search_bench_repetitions=3`, an independent `verification_bench_repetitions=5` re-measurement of each method's search-time winner, `N_calib=24`, a per-evaluation thermal gate, and crash-safe checkpointing) and re-run on 2026-09-07/08 on 4 of the 7 variants (Q3_K_M, Q4_0, Q5_K_M, Q6_K), writing to a separate results directory rather than overwriting the original data reported above.
+
+**Table IX: Hardened follow-up: verified winners, 4 re-run variants**
 
 | Variant | Verified/5 | Winner | Cost (search → verified) |
 |---|---|---|---|
@@ -219,9 +273,9 @@ The fix works as intended — it refuses to report a winner it cannot corroborat
 ## VI. Limitations and Threats to Validity
 
 - **Single model family and hardware target**: TinyLlama-1.1B on Pi 5 only; generalization untested.
-- **Scalarized objective with fixed, untuned weights** collapses a genuine multi-objective trade-off into one number; Section IV-D's Q4_K_M split (Grid wins on energy alone but loses overall) shows this is doing real work, not cosmetic aggregation. A Pareto-front analysis would be more informative but more expensive.
+- **Scalarized objective with fixed, untuned weights** collapses a genuine multi-objective trade-off into one number; Section IV-E's Q4_K_M split (Grid wins on energy alone but loses overall) shows this is doing real work, not cosmetic aggregation. A Pareto-front analysis would be more informative but more expensive.
 - **Small calibration sample** (N_calib=8) measurably changed a result: on Q2_K, two independent optima landed outside the calibrated min/max window and clipped to an exact cost of 0.0000 — a normalization artifact, not a true global optimum, that directly narrowed the apparent margin on that variant.
-- **The optimizer's curse is general and pervasive**, not an isolated anomaly: `bench_repetitions=1` means each evaluation is one noisy hardware measurement; reconstructing costs from raw metrics (Section IV-D) disagrees with the recorded cost by up to 180x, and every ratio above 8x belongs to a metaheuristic, never Grid/Random. A hardened follow-up (`bench_repetitions`>1 plus an automated verification check, Section IV-F) confirms this is not a single-measurement artifact — most metaheuristic winners still fail independent re-verification even after tripling repetitions — and surfaces a stronger result: one re-run variant (Q5_K_M) reconciles for no method at all, baselines included.
+- **The optimizer's curse is general and pervasive**, not an isolated anomaly: `bench_repetitions=1` means each evaluation is one noisy hardware measurement; reconstructing costs from raw metrics (Section IV-E) disagrees with the recorded cost by up to 180x, and every ratio above 8x belongs to a metaheuristic, never Grid/Random. A hardened follow-up (`bench_repetitions`>1 plus an automated verification check, Section IV-H) confirms this is not a single-measurement artifact — most metaheuristic winners still fail independent re-verification even after tripling repetitions — and surfaces a stronger result: one re-run variant (Q5_K_M) reconciles for no method at all, baselines included.
 - **N_runs reduced from 10 to 2** for real Phase 2: reported spread is the gap between two samples, not a statistically grounded estimate.
 - **Hardware measurement noise** (thermal throttling at 83–84.5°C) may dominate small differences between top configurations; a mid-run Pi crash, likely thermal, lost no completed data but exposed the runner's lack of checkpoint/resume capability.
 - **Quality metric is perplexity, not task accuracy**, which is why temperature/top-p were dropped from the search space; a downstream task benchmark might rank configurations differently.
@@ -231,11 +285,11 @@ The fix works as intended — it refuses to report a winner it cannot corroborat
 
 This paper set out to answer whether a two-phase decomposition — exhaustive discrete quantization selection followed by metaheuristic runtime tuning — is a feasible, worthwhile way to structure edge-LLM configuration search on physical hardware, and how PSO/GWO/DE compare for this task under real hardware-in-the-loop measurement rather than synthetic validation. Phase 1's exhaustive sweep found all 7 candidate variants Pareto-nondominated, and Phase 2's real search across all 7 retained variants showed that the best achievable configuration, its cost, and even *how reliably that cost can be trusted at all* differ substantially by variant. A systematic reconciliation check — recomputing every reported "best" configuration's cost from an independent re-measurement — revealed the **optimizer's curse**: population-based metaheuristics' iterative convergence repeatedly samples near a promising region, so their reported best is a biased, overly optimistic estimator of true cost, far more so than grid or random search's more spread-out sampling. This directly explains why a naive baseline outright wins on 2 of 7 variants and why one metaheuristic's apparent 61x margin should not be trusted: not because metaheuristics are worse optimizers, but because their own search dynamics expose their reported bests to a specific, nameable, now-measured statistical bias that cheap synthetic validation never surfaces. To our knowledge, this is the first time this failure mode has been concretely measured for metaheuristic-tuned LLM deployment specifically.
 
-Future work, in priority order: (1) the hardened follow-up (Section IV-F) confirms repetitions plus verification catches unreliable winners but does not eliminate the noise — extending this to the remaining 3 variants for full 7/7 hardened coverage, and investigating whether still-higher repetition counts or a fundamentally more stable measurement protocol (e.g., averaging over multiple thermal cycles) can raise Q5_K_M-style zero-verified-winner variants to a resolvable state, is now the top priority; (2) multi-objective Pareto-front search (NSGA-II/MOEA-D) instead of scalarization; (3) a downstream task-accuracy quality metric, reopening the temperature/top-p dimensions dropped here; (4) extension to other edge platforms and small models to test whether the variant-to-variant instability found here is hardware-specific or general; (5) hybrid metaheuristics and additional Phase 1 compression axes (structured pruning, LoRA-merged distillation).
+Future work, in priority order: (1) the hardened follow-up (Section IV-H) confirms repetitions plus verification catches unreliable winners but does not eliminate the noise — extending this to the remaining 3 variants for full 7/7 hardened coverage, and investigating whether still-higher repetition counts or a fundamentally more stable measurement protocol (e.g., averaging over multiple thermal cycles) can raise Q5_K_M-style zero-verified-winner variants to a resolvable state, is now the top priority; (2) multi-objective Pareto-front search (NSGA-II/MOEA-D) instead of scalarization; (3) a downstream task-accuracy quality metric, reopening the temperature/top-p dimensions dropped here; (4) extension to other edge platforms and small models to test whether the variant-to-variant instability found here is hardware-specific or general; (5) hybrid metaheuristics and additional Phase 1 compression axes (structured pruning, LoRA-merged distillation).
 
-## Data Availability
+## Declarations
 
-Code, configuration, and all raw measurement data (Phase 1 sweep results, Phase 2 convergence/robustness/best-configuration CSVs, the Section IV-F hardened follow-up data, and figures) referenced in this paper, including full repository structure and pseudocode, are maintained at https://github.com/Koraiche/phd-hypetune-service, currently a private repository that will be made public upon publication. The WikiText-2 corpus used for perplexity measurement is a standard, separately-licensed public dataset and is not redistributed in this repository.
+**Data Availability:** Code, configuration, and all raw measurement data (Phase 1 sweep results, Phase 2 convergence/robustness/best-configuration CSVs, the Section IV-H hardened follow-up data, and figures) referenced in this paper, including full repository structure and pseudocode, are maintained at https://github.com/Koraiche/phd-hypetune-service, currently a private repository that will be made public upon publication. The WikiText-2 corpus used for perplexity measurement is a standard, separately-licensed public dataset and is not redistributed in this repository. Funding, Author Contributions, and Conflict of Interest declarations are to be completed by the authors prior to submission.
 
 ## References
 
