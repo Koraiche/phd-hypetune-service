@@ -1,9 +1,8 @@
 # Metaheuristic Co-Optimization of Compression and Runtime Configuration for Embedded LLM Inference: A Case Study on TinyLlama and Raspberry Pi 5
 
-**Fahd Koraiche¹ᵃ\*, Rachid Dehbi¹ᵇ, Amine Dehbi²³ᶜ**
+**Fahd Koraiche¹ᵃ\*, Rachid Dehbi¹ᵇ, Amine Dehbi²ᶜ**
 ¹Research Laboratory of Data Engineering and Intelligent Systems (LIDSI), Faculty of Science Aïn Chock, Casablanca, Morocco
 ²Research Laboratory of Mathematics and Computer Science (LTI), Faculty of Sciences Ben M'Sik, Casablanca, Morocco
-³High School of Technology-Dakhla, Dakhla, Morocco
 ᵃfahd.koraiche@gmail.com · ᵇdehbirac@yahoo.fr · ᶜdehbiamine1@gmail.com
 
 > **Note on this file:** this is the submission-length version of the article, formatted for the target venue's IJACSA-style template (`latexFormat/Paper_format.tex`, IEEEtran `conference` class with IJACSA header/footer branding) and compiling to exactly 10 pages under that template (`latex/article.tex`). A fuller ~20-page extended/thesis version with the same experiment and numbers, unrestricted per-variant narrative depth, and the full appendix is preserved at `article_draft_extended.md` (LaTeX: `latex/article_extended.tex`). Both versions restore full per-variant Convergence/Robustness/Baseline-Comparison discussion (this file trims wording more tightly than the extended version to fit the page budget, but drops no tables, figures, or numbers). This file's LaTeX counterpart also carries the two-phase pseudocode as an appendix (Section III's Algorithms 1–2) and a `Declarations` section per the target template's convention; Funding/CRediT/Conflict-of-Interest text is intentionally left for the authors to complete rather than fabricated.
