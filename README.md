@@ -174,9 +174,9 @@ There are now two versions, both reporting the same experiment and numbers:
 
 ```
 cd latex
-pdflatex article.tex          # 10-page submission version, target-venue (IJACSA) template
+pdflatex article.tex          # 9-page submission version, target-venue (IJACSA) template
 pdflatex article.tex          # second pass to resolve cross-references/citations
-pdflatex article_extended.tex # ~20-page full/thesis version (same content, richer per-variant prose)
+pdflatex article_extended.tex # ~21-page full/thesis version (same content, richer per-variant prose)
 pdflatex article_extended.tex
 ```
 
@@ -186,18 +186,24 @@ the exact template the target journal supplied in `latexFormat/`
 build matches byte-for-byte): `\documentclass[conference, letterpaper]{IEEEtran}`,
 the journal's fancyhdr header/footer branding ("(IJACSA) International
 Journal of Advanced Computer Science and Applications, Vol. XXX, No. XXX,
-2026" / "www.ijacsa.thesai.org" / "N | P a g e"), `IEEEauthorblockN`/`A`
-author formatting with a footnote-marked corresponding author, and a
-`Declarations` section (Data Availability is filled in; Funding/Author
-Contributions/Conflict of Interest are left for the authors to complete
-rather than fabricated). It restores full per-variant Convergence,
+2026" / "www.ijacsa.thesai.org" / "N | P a g e"), and `IEEEauthorblockN`/`A`
+author formatting with a footnote-marked corresponding author. There is
+**no Declarations section** (Data Availability, the Funding/CRediT/COI
+placeholder, and the required-per-IJACSA-guidelines Generative AI
+disclosure) — all removed at the corresponding author's explicit request;
+this is a known gap against IJACSA's stated policy (GenAI use "must be
+disclosed"), not an oversight, and should be revisited before actual
+submission. It restores full per-variant Convergence,
 Robustness, and Comparison-Against-Baselines discussion (previously
 condensed to single paragraphs) and adds the two-phase pseudocode as an
-appendix, while fitting exactly 10 pages — every table, both grid figures,
-and all numbers from the extended version are present, just written more
-tersely. `article_extended.tex`/`article_draft_extended.md` are the fuller
-pair kept for thesis use (same generic IEEEtran `journal` class, no venue
-branding). Requires `IEEEtran.cls`, `booktabs`, `subcaption`,
+appendix, while fitting in 9 pages, under IJACSA's 10-page main-body limit
+(which itself excludes references/tables/figures, so there is more
+headroom than the raw page count suggests) — every table, both grid
+figures, and all numbers from the extended version are present, just
+written more tersely. `article_extended.tex`/`article_draft_extended.md`
+are the fuller pair kept for thesis use (same generic IEEEtran `journal`
+class, no venue branding; also has no Declarations section, for the same
+reason). Requires `IEEEtran.cls`, `booktabs`, `subcaption`,
 `threeparttable`, `fancyhdr`, `balance`/`flushend` (note: only load one of
 `balance`'s `\balance` command or `flushend`'s automatic balancing, not
 both — combining them corrupted the last page's footer in testing),
@@ -227,7 +233,13 @@ split; no known conflicts) rather than blank placeholders. These were
 were still unverified claims about real people's real circumstances). They
 now need to be **written from scratch with real information** before
 submission — most IEEE and IAES-family venues require all three as a hard
-submission requirement, so the paper cannot go out without them.
+submission requirement, so the paper cannot go out without them. A
+Declaration on Generative AI was drafted at one point (IJACSA's guidelines
+describe it as a required disclosure) and was also **removed entirely at
+the corresponding author's explicit request**, along with Data
+Availability — so currently there is no Declarations section at all in
+either version. Whether/how to restate any of these four items is a
+decision for the authors, not something to silently re-add.
 
 - **Funding**: was there any grant, institutional funding line, or hardware
   donation (e.g., did LIDSI or the university provide the Raspberry Pi 5, or
@@ -313,23 +325,32 @@ supplied in `latexFormat/` (IJACSA — International Journal of Advanced
 Computer Science and Applications, published by TheSAI): `IEEEtran.cls`
 copied from `latexFormat/` into `latex/` so the build matches exactly,
 `\documentclass[conference, letterpaper]{IEEEtran}`, the journal's
-fancyhdr header/footer branding, `IEEEauthorblockN`/`A` author formatting,
-and a `Declarations` section per its convention. It compiles to exactly 10
-pages with no errors. `article_extended.tex` remains generic
-`\documentclass[journal]{IEEEtran}` (no venue branding) for thesis use —
-still worth re-typesetting against the same template if it is ever
-submitted anywhere rather than kept as a thesis chapter.
+fancyhdr header/footer branding, and `IEEEauthorblockN`/`A` author
+formatting. It compiles to 9 pages with no errors. `article_extended.tex`
+remains generic `\documentclass[journal]{IEEEtran}` (no venue branding)
+for thesis use — still worth re-typesetting against the same template if
+it is ever submitted anywhere rather than kept as a thesis chapter.
 Remaining before submission:
 
+- **Declarations section was removed entirely, at the corresponding
+  author's explicit request, from both versions** — Data Availability,
+  the Funding/CRediT/COI placeholder, and a Declaration on Generative AI
+  (which IJACSA's own author guidelines describe as a required disclosure:
+  "Any use of GenAI must be disclosed... Non-compliance... will be treated
+  as academic misconduct"). This is a known, deliberate gap against the
+  venue's stated policy, not an oversight — needs the authors' own
+  decision on how (or whether) to re-add it before actual submission.
 - **Volume/issue number**: the header currently reads the template's own
   placeholder, "Vol. XXX, No. XXX, 2026" — this is normal for a
   pre-acceptance submission (IJACSA assigns the real volume/issue at
   acceptance) and is not something to guess or fabricate now.
-- **Page/word limits**: confirmed satisfied — `article.tex` compiles to
-  exactly 10 pages under the real template, with every table, number, and
-  both grid figures from the extended version retained (per-variant
-  discussion is present but written more tersely than in
-  `article_extended.tex`).
+- **Page/word limits**: confirmed satisfied — `article.tex` compiles to 9
+  pages, under IJACSA's 10-page main-body limit (which excludes
+  references/tables/figures per their guidelines, so there is more actual
+  headroom than the raw page count suggests — body prose alone is closer
+  to 5 pages). Every table, number, and both grid figures from the
+  extended version are retained (per-variant discussion is present but
+  written more tersely than in `article_extended.tex`).
 - **Running header**: the `\markboth{Draft, \today}{}` line that put "DRAFT,
   [date]" on every page has been removed entirely (per the "no draft
   scaffolding" cleanup). IEEEtran's default running header is now in effect
