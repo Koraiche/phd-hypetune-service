@@ -485,6 +485,10 @@ Future work, in priority order suggested by the limitations already surfaced in 
 
 Code, configuration, and all raw measurement data (Phase 1 sweep results, Phase 2 convergence/robustness/best-configuration CSVs, the Section 5.8 hardened follow-up data, and figures) referenced in this paper are maintained at https://github.com/Koraiche/phd-hypetune-service, currently a private repository (confirmed 2026-08-17: returns 404 to unauthenticated access) that will be made public upon publication. The WikiText-2 corpus used for perplexity measurement (Section 4) is a standard, separately-licensed public dataset and is not redistributed in this repository.
 
+## Declaration on Generative AI
+
+The authors used Claude (Anthropic), a generative AI assistant, throughout the preparation of this work, including drafting and revising manuscript text, assisting with literature search and citation verification, and writing the data-analysis and experiment-automation code (including the metaheuristic implementations, the hardware measurement pipeline, and the reconciliation and hardened-verification checks reported in Section 5.5 and Section 5.8) under the authors' direction. All AI-assisted text, code, and analysis were reviewed, checked against the underlying raw measurement data, and edited by the authors, who take full responsibility for the accuracy, originality, and scientific integrity of this manuscript, including its experimental design, results, and conclusions.
+
 ---
 
 ## References
