@@ -1,0 +1,130 @@
+{
+  "global_ranges": {
+    "latency": [
+      42.54,
+      87.51
+    ],
+    "quality": [
+      -31.3272,
+      -21.7013
+    ],
+    "memory": [
+      467.9,
+      2179.6
+    ],
+    "energy": [
+      0.6627,
+      6.308
+    ]
+  },
+  "ranking": [
+    {
+      "variant": "Q4_0",
+      "method": "Random",
+      "threads": "2",
+      "n_batch": "181",
+      "n_p": "182",
+      "kv": "f16",
+      "latency_ms": 48.57,
+      "ppl": 22.3562,
+      "rss_mb": 1160.6,
+      "energy_j": 0.6627,
+      "global_cost": 0.1517
+    },
+    {
+      "variant": "Q3_K_M",
+      "method": "Grid",
+      "threads": "4",
+      "n_batch": "32",
+      "n_p": "128",
+      "kv": "f16",
+      "latency_ms": 49.12,
+      "ppl": 23.2585,
+      "rss_mb": 784.5,
+      "energy_j": 1.1383,
+      "global_cost": 0.1532
+    },
+    {
+      "variant": "Q4_K_M",
+      "method": "DE",
+      "threads": "3",
+      "n_batch": "318",
+      "n_p": "387",
+      "kv": "f16",
+      "latency_ms": 53.86,
+      "ppl": 22.3879,
+      "rss_mb": 1248.5,
+      "energy_j": 1.6392,
+      "global_cost": 0.2216
+    },
+    {
+      "variant": "Q5_K_M",
+      "method": "Random",
+      "threads": "3",
+      "n_batch": "66",
+      "n_p": "419",
+      "kv": "f16",
+      "latency_ms": 62.3,
+      "ppl": 21.9608,
+      "rss_mb": 1449.6,
+      "energy_j": 2.2324,
+      "global_cost": 0.3057
+    },
+    {
+      "variant": "Q2_K",
+      "method": "GWO",
+      "threads": "4",
+      "n_batch": "153",
+      "n_p": "128",
+      "kv": "f16",
+      "latency_ms": 42.99,
+      "ppl": 31.3272,
+      "rss_mb": 468.8,
+      "energy_j": 1.2571,
+      "global_cost": 0.3641
+    },
+    {
+      "variant": "Q6_K",
+      "method": "DE",
+      "threads": "3",
+      "n_batch": "48",
+      "n_p": "387",
+      "kv": "f16",
+      "latency_ms": 72.65,
+      "ppl": 21.7199,
+      "rss_mb": 1664.6,
+      "energy_j": 2.0586,
+      "global_cost": 0.3996
+    },
+    {
+      "variant": "Q8_0",
+      "method": "GWO",
+      "threads": "2",
+      "n_batch": "108",
+      "n_p": "128",
+      "kv": "f16",
+      "latency_ms": 85.86,
+      "ppl": 21.7013,
+      "rss_mb": 2179.6,
+      "energy_j": 0.8407,
+      "global_cost": 0.5403
+    }
+  ],
+  "variant_win_share": {
+    "Q2_K": 0.2218782249742002,
+    "Q3_K_M": 0.29205366357069146,
+    "Q4_0": 0.4850361197110423,
+    "Q4_K_M": 0.0,
+    "Q5_K_M": 0.0,
+    "Q6_K": 0.0010319917440660474,
+    "Q8_0": 0.0
+  },
+  "scenario_winner": {
+    "default (0.35/0.35/0.20/0.10)": "Q4_0/Random",
+    "equal (0.25 each)": "Q3_K_M/DE",
+    "latency-led (0.55/0.25/0.10/0.10)": "Q4_0/Random",
+    "quality-led (0.25/0.55/0.10/0.10)": "Q4_0/Random",
+    "memory-led (0.25/0.25/0.40/0.10)": "Q3_K_M/Grid",
+    "energy-led (0.25/0.25/0.10/0.40)": "Q4_0/Random"
+  }
+}

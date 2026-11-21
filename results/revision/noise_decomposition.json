@@ -1,0 +1,50 @@
+{
+  "pooled_sigma": 0.0535881535845225,
+  "dup_groups": 38,
+  "dup_measurements": 97,
+  "sigma_over_random_iqr_mean": 0.18906901053149638,
+  "gaps_positive": 17,
+  "gaps_total": 20,
+  "sign_test_p_one_sided": 0.0012884140014648438,
+  "mean_gap_mh": 0.0723100695773936,
+  "mean_gap_baselines": 0.04827449717081661,
+  "excess_mh": 0.024035572406576985,
+  "per_variant": {
+    "Q3_K_M": {
+      "sigma": 0.05525065405223396,
+      "dup_groups": 10,
+      "random_iqr": 0.28150378098979395,
+      "sigma_over_iqr": 0.1962696694799886,
+      "mean_gap_mh": 0.037377951374840436,
+      "mean_gap_baselines": 0.01889734774881175,
+      "excess_mh": 0.018480603626028685
+    },
+    "Q4_0": {
+      "sigma": 0.07068195283369841,
+      "dup_groups": 9,
+      "random_iqr": 0.24159972001116126,
+      "sigma_over_iqr": 0.292558090838984,
+      "mean_gap_mh": 0.04151601229352247,
+      "mean_gap_baselines": -0.0037019744763958466,
+      "excess_mh": 0.04521798676991831
+    },
+    "Q5_K_M": {
+      "sigma": 0.053366660053330704,
+      "dup_groups": 9,
+      "random_iqr": 0.27988270071016813,
+      "sigma_over_iqr": 0.1906750932369858,
+      "mean_gap_mh": 0.15135081875639814,
+      "mean_gap_baselines": 0.12383102348127936,
+      "excess_mh": 0.027519795275118775
+    },
+    "Q6_K": {
+      "sigma": 0.020312703943351836,
+      "dup_groups": 10,
+      "random_iqr": 0.26458069961265196,
+      "sigma_over_iqr": 0.07677318857002714,
+      "mean_gap_mh": 0.05899549588481332,
+      "mean_gap_baselines": 0.054071591929571165,
+      "excess_mh": 0.0049239039552421565
+    }
+  }
+}

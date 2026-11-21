@@ -1,0 +1,20 @@
+{
+  "n_weight_vectors": 969,
+  "winner_changes_share": 0.22615361934247383,
+  "median_kendall_tau": 0.7999999999999999,
+  "share_of_vectors_won_mean_over_variants": {
+    "PSO": 0.22983930414270967,
+    "GWO": 0.13386407194456731,
+    "DE": 0.20713548577325666,
+    "Random": 0.2293970219666814,
+    "Grid": 0.19976411617278492
+  },
+  "default_winner_per_scenario_agreement": {
+    "default (0.35/0.35/0.20/0.10)": 7,
+    "equal (0.25 each)": 6,
+    "latency-led (0.55/0.25/0.10/0.10)": 5,
+    "quality-led (0.25/0.55/0.10/0.10)": 6,
+    "memory-led (0.25/0.25/0.40/0.10)": 7,
+    "energy-led (0.25/0.25/0.10/0.40)": 5
+  }
+}

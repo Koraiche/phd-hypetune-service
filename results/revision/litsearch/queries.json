@@ -1,0 +1,22 @@
+{
+ "database": "OpenAlex (api.openalex.org)",
+ "field": "title_and_abstract.search",
+ "filters": "publication_year:2019-2026,language:en",
+ "run_date": "2026-11-20",
+ "queries": {
+  "Q1_opt_compression_edge_llm": "(\"particle swarm\" OR \"grey wolf\" OR \"gray wolf\" OR \"differential evolution\" OR \"genetic algorithm\" OR \"evolutionary algorithm\" OR metaheuristic OR \"swarm intelligence\") AND (quantization OR quantized OR \"model compression\" OR \"mixed precision\" OR \"mixed-precision\") AND (\"Raspberry Pi\" OR \"edge device\" OR \"edge devices\" OR \"embedded device\" OR \"embedded system\" OR \"single-board\" OR microcontroller OR \"on-device\" OR \"edge computing\") AND (\"large language model\" OR \"language model\" OR LLM OR LLMs OR \"small language model\")",
+  "Q2_opt_runtime_edge_llm": "(\"particle swarm\" OR \"grey wolf\" OR \"gray wolf\" OR \"differential evolution\" OR \"genetic algorithm\" OR \"evolutionary algorithm\" OR metaheuristic OR \"swarm intelligence\") AND (\"runtime configuration\" OR \"inference configuration\" OR \"batch size\" OR \"thread count\" OR \"number of threads\" OR \"context length\" OR \"KV cache\" OR \"configuration tuning\" OR autotuning OR \"auto-tuning\" OR \"inference engine\" OR \"deployment configuration\") AND (\"Raspberry Pi\" OR \"edge device\" OR \"edge devices\" OR \"embedded device\" OR \"embedded system\" OR \"single-board\" OR microcontroller OR \"on-device\" OR \"edge computing\") AND (\"large language model\" OR \"language model\" OR LLM OR LLMs OR \"small language model\")",
+  "Q3_compression_runtime_edge_llm": "(quantization OR quantized OR \"model compression\" OR \"mixed precision\" OR \"mixed-precision\") AND (\"runtime configuration\" OR \"inference configuration\" OR \"batch size\" OR \"thread count\" OR \"number of threads\" OR \"context length\" OR \"KV cache\" OR \"configuration tuning\" OR autotuning OR \"auto-tuning\" OR \"inference engine\" OR \"deployment configuration\") AND (\"Raspberry Pi\" OR \"edge device\" OR \"edge devices\" OR \"embedded device\" OR \"embedded system\" OR \"single-board\" OR microcontroller OR \"on-device\" OR \"edge computing\") AND (\"large language model\" OR \"language model\" OR LLM OR LLMs OR \"small language model\")",
+  "Q4_opt_compression_runtime_edge": "(\"particle swarm\" OR \"grey wolf\" OR \"gray wolf\" OR \"differential evolution\" OR \"genetic algorithm\" OR \"evolutionary algorithm\" OR metaheuristic OR \"swarm intelligence\") AND (quantization OR quantized OR \"model compression\" OR \"mixed precision\" OR \"mixed-precision\") AND (\"runtime configuration\" OR \"inference configuration\" OR \"batch size\" OR \"thread count\" OR \"number of threads\" OR \"context length\" OR \"KV cache\" OR \"configuration tuning\" OR autotuning OR \"auto-tuning\" OR \"inference engine\" OR \"deployment configuration\") AND (\"Raspberry Pi\" OR \"edge device\" OR \"edge devices\" OR \"embedded device\" OR \"embedded system\" OR \"single-board\" OR microcontroller OR \"on-device\" OR \"edge computing\")",
+  "Q5_opt_edge_llm": "(\"particle swarm\" OR \"grey wolf\" OR \"gray wolf\" OR \"differential evolution\" OR \"genetic algorithm\" OR \"evolutionary algorithm\" OR metaheuristic OR \"swarm intelligence\") AND (\"Raspberry Pi\" OR \"edge device\" OR \"edge devices\" OR \"embedded device\" OR \"embedded system\" OR \"single-board\" OR microcontroller OR \"on-device\" OR \"edge computing\") AND (\"large language model\" OR \"language model\" OR LLM OR LLMs OR \"small language model\")",
+  "Q6_opt_compression_edge": "(\"particle swarm\" OR \"grey wolf\" OR \"gray wolf\" OR \"differential evolution\" OR \"genetic algorithm\" OR \"evolutionary algorithm\" OR metaheuristic OR \"swarm intelligence\") AND (quantization OR quantized OR \"model compression\" OR \"mixed precision\" OR \"mixed-precision\") AND (\"Raspberry Pi\" OR \"edge device\" OR \"edge devices\" OR \"embedded device\" OR \"embedded system\" OR \"single-board\" OR microcontroller OR \"on-device\" OR \"edge computing\")"
+ },
+ "counts": {
+  "Q1_opt_compression_edge_llm": 3,
+  "Q2_opt_runtime_edge_llm": 0,
+  "Q3_compression_runtime_edge_llm": 64,
+  "Q4_opt_compression_runtime_edge": 0,
+  "Q5_opt_edge_llm": 16,
+  "Q6_opt_compression_edge": 40
+ }
+}
